@@ -1,0 +1,7 @@
+{
+  "mcpServers": {
+    "mcp-atlassian": {
+      "url": "${JIRA_MCP_URL}"
+    }
+  }
+}

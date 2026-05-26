@@ -1,0 +1,11 @@
+{
+  "app-interface": {
+    "url": "https://gitlab.cee.redhat.com/platex-rehor-bot/app-interface.git",
+    "upstream": "https://gitlab.cee.redhat.com/service/app-interface.git",
+    "host": "gitlab"
+  },
+  "ocp-advisor-frontend": {
+    "url": "git@github.com-bot:platex-rehor-bot/ocp-advisor-frontend.git",
+    "upstream": "git@github.com:RedHatInsights/ocp-advisor-frontend.git"
+  }
+}

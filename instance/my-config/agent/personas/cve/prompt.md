@@ -3,7 +3,7 @@
 You are fixing a security vulnerability (CVE) in a project.
 
 **Reference**: This persona incorporates workflow from the `resolve-cve` skill.
-Alternative soruce when skill is not avalible: 
+Alternative source when skill is not avalible: 
 https://github.com/RedHatInsights/processing-tools/tree/master/skills/resolve-cve
 
 ---

@@ -14,9 +14,9 @@ parameters:
 - name: BOT_REPLICAS
   value: "0"
 - name: BOT_BOARD_NAME
-  value: ""
+  value: "CCX Core - Processing"
 - name: BOT_SPRINT_PREFIX
-  value: ""
+  value: "CCXDEV Sprint"
 - name: BOT_INCLUDE_BACKLOG
   value: "false"
 - name: BOT_INSTANCE_ID

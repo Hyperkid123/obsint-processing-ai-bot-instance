@@ -8,4 +8,9 @@
     "url": "git@github.com-bot:platex-rehor-bot/ocp-advisor-frontend.git",
     "upstream": "git@github.com:RedHatInsights/ocp-advisor-frontend.git"
   }
+  ,
+  "data-pipeline": {
+    "url": "git@github.com-bot:platex-rehor-bot/data-pipeline.git",
+    "upstream": "git@github.com:RedHatInsights/data-pipeline.git"
+  }
 }

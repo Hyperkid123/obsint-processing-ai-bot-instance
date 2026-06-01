@@ -109,13 +109,21 @@ If package doesn't appear in syft at all → NOT AFFECTED (not present in runtim
    - Transition ticket to "Code Review"
 
 4. **If tests fail**:
-   - Attempt to fix breaking changes in the codebase
-   - Common fixes:
-     - Update API calls that changed in the new version
-     - Update type definitions for TypeScript
-     - Fix deprecated method usage
+   - Attempt to fix breaking changes **ONLY if minimal and safe**
+   - **Allowed minimal fixes**:
+     - Update API calls that changed in the new version (simple renames, parameter additions)
+     - Update type definitions for TypeScript (basic type updates)
+     - Fix deprecated method usage (direct replacements only)
      - Update import statements if package structure changed
-   - Re-run tests after each fix attempt
+     - Adjust function parameters for minor signature changes
+   - **DO NOT attempt**:
+     - Business logic changes or refactoring
+     - Component logic or state management changes (frontend)
+     - Algorithm or data structure modifications
+     - Database schema or migration changes (backend)
+     - Routing, navigation, or API integration changes (frontend)
+     - Any change requiring deep understanding of domain logic
+   - Re-run tests after each fix attempt (max 3 attempts)
    
 5. **If fixes successful**:
    - Create PR with both dependency update AND codebase fixes

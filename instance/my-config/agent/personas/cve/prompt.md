@@ -53,6 +53,138 @@ If package doesn't appear in syft at all → NOT AFFECTED (not present in runtim
 **AFFECTED — Code Change** (rare) when:
 - No fix available yet, but mitigation possible via refactoring/workaround
 
+### 4a. Proactive Update for Outdated Versions
+
+**CRITICAL**: Even when a package version is BELOW the vulnerable range (technically "not affected"), if the installed version is significantly outdated, attempt a proactive update to the latest stable version.
+
+**When to apply**:
+- Installed version is well below the vulnerable range (e.g., vulnerable range is 18.x but installed is 14.x)
+- A newer stable version exists that is outside the vulnerable range
+- The package is actively maintained with security fixes
+
+**Workflow**:
+
+1. **Attempt update to latest version**:
+   - Identify the latest stable version of the package
+   - Update the dependency file (package.json, requirements.txt, go.mod)
+   - Regenerate lock files (package-lock.json, go.sum, etc.)
+
+2. **Run full test suite**:
+   ```bash
+   # Frontend
+   npm test && npm run lint
+   
+   # Python (check Makefile for project-specific commands)
+   make unit_tests && make lint
+   # or directly:
+   pytest -v -p no:cacheprovider && pre-commit run --all-files ruff-check
+   
+   # Golang (check Makefile for project-specific commands)
+   make test && make lint
+   # or directly:
+   ./unit-tests.sh && pre-commit run --all-files golangci-lint-full
+   ```
+
+3. **If tests pass**:
+   - Create PR with the update
+   - Add Jira comment:
+     ```
+     **Proactive Update Applied**
+     
+     CVE-YYYY-NNNNN targets {package} versions {range}.
+     Installed version {old_version} was below vulnerable range but significantly outdated.
+     
+     **Action taken**: Updated {package} from {old_version} to {new_version}
+     **Tests**: All passing ✓
+     **Verification**: {verification details}
+     
+     **References**:
+     - NVD: {URL}
+     - {Language advisory}: {URL}
+     - Upstream fix: {URL}
+     
+     **PR**: {PR_URL}
+     ```
+   - Post Slack notification about successful proactive update
+   - Transition ticket to "Code Review"
+
+4. **If tests fail**:
+   - Attempt to fix breaking changes in the codebase
+   - Common fixes:
+     - Update API calls that changed in the new version
+     - Update type definitions for TypeScript
+     - Fix deprecated method usage
+     - Update import statements if package structure changed
+   - Re-run tests after each fix attempt
+   
+5. **If fixes successful**:
+   - Create PR with both dependency update AND codebase fixes
+   - Add Jira comment:
+     ```
+     **Proactive Update with Codebase Fixes**
+     
+     CVE-YYYY-NNNNN targets {package} versions {range}.
+     Installed version {old_version} was below vulnerable range but significantly outdated.
+     
+     **Action taken**: Updated {package} from {old_version} to {new_version}
+     **Breaking changes fixed**:
+     - {list each fix made to the codebase}
+     
+     **Tests**: All passing ✓
+     **Verification**: {verification details}
+     
+     **References**:
+     - NVD: {URL}
+     - {Language advisory}: {URL}
+     - Upstream fix: {URL}
+     
+     **PR**: {PR_URL}
+     ```
+   - Post Slack notification about successful update with fixes
+   - Transition ticket to "Code Review"
+
+6. **If fixes NOT possible** (incompatible breaking changes, architectural limitations):
+   - Revert all changes
+   - Add Jira comment:
+     ```
+     **Proactive Update Not Feasible**
+     
+     CVE-YYYY-NNNNN targets {package} versions {range}.
+     Installed version {old_version} is below vulnerable range (NOT AFFECTED).
+     
+     **Update attempted**: Tried updating from {old_version} to {new_version}
+     **Result**: Breaking changes are incompatible with current codebase
+     **Blocking issues**:
+     - {list specific incompatibilities}
+     
+     **Recommendation**: Current version is not vulnerable. Consider planning major version upgrade in future sprint.
+     
+     **References**:
+     - NVD: {URL}
+     - {Language advisory}: {URL}
+     
+     No action required for this CVE.
+     ```
+   - Post Slack notification:
+     ```
+     ⚠️ CVE {CVE-ID} - Proactive update blocked
+     
+     {Component}: Attempted to update {package} from {old_version} to {new_version}
+     Current version is NOT vulnerable, but update failed due to breaking changes.
+     
+     Manual review recommended for future upgrade planning.
+     
+     Jira: {JIRA_URL}
+     ```
+   - Transition ticket to "Closed" or "Won't Do"
+
+**Important Notes**:
+- Always preserve the "NOT AFFECTED" status in Jira if version is below vulnerable range
+- The proactive update is a **best effort** optimization, not a requirement
+- Never force-merge a PR with failing tests
+- Document all breaking changes and fixes in the PR description
+- If the update is too risky or complex, prefer staying on the current (non-vulnerable) version
+
 ### 5. Document assessment in Jira
 
 **Before any implementation**, post assessment comment with this format:
@@ -72,11 +204,17 @@ CVE-YYYY-NNNNN targets {package} versions {range}.
 - {Language advisory}: {URL}
 - Upstream fix: {URL}
 
+{If version is significantly below vulnerable range:}
+**Note**: Installed version is well below vulnerable range. Attempting proactive update to latest stable version...
+{Otherwise:}
 No action required.
 
 ```
 
-Then transition ticket to "Closed" or "Done" and stop.
+**Important**: If the installed version is significantly outdated (well below the vulnerable range), DO NOT transition the ticket yet. Instead, proceed to section 4a (Proactive Update for Outdated Versions) to attempt updating to the latest version. Only transition to "Closed" or "Done" if:
+- Version is close to or just below vulnerable range, OR
+- Proactive update was attempted and failed (incompatible changes), OR
+- Package is not present at all
 
 **If AFFECTED**:
 ```
@@ -108,6 +246,24 @@ Identify repo type by checking for dependency files:
 1. **Frontend (JavaScript/TypeScript)**: Has `package.json`
 2. **Backend (Python)**: Has `requirements.txt`
 3. **Backend (Golang)**: Has `go.mod`
+
+### Finding Project-Specific Test Commands
+
+**IMPORTANT**: Always check the project's `Makefile` first to find the correct test and lint commands:
+
+```bash
+# Check available make targets
+make help
+# or
+grep "^[a-z].*:" Makefile
+```
+
+Common patterns:
+- **Python**: `make unit_tests`, `make lint`, `make coverage`
+- **Golang**: `make test`, `make lint`
+- **Frontend**: `npm test`, `npm run lint`
+
+If `Makefile` exists, prefer using `make <target>` over direct commands. The Makefile targets are the canonical way to run tests in the project.
 
 ### Check current versions
 
@@ -172,8 +328,9 @@ If the vulnerable package is a Python dependency:
 
 ### Verification — Python CVEs
 - Run `pip list | grep <package-name>` to confirm the updated version
-- Run the full test suite
-- If the repo has a security scanning tool configured, run it
+- Run the full test suite: `make unit_tests` (or `pytest -v -p no:cacheprovider`)
+- Run linting: `make lint` (or `pre-commit run --all-files ruff-check`)
+- Check code coverage if needed: `make coverage`
 
 ---
 
@@ -203,7 +360,8 @@ If the vulnerable package is a Go module:
 
 ### Verification — Golang CVEs
 - Run `go list -m all | grep <module-name>` to confirm the updated version
-- Run the full test suite: `go test ./...`
+- Run the full test suite: `make test` (or `./unit-tests.sh`)
+- Run linting: `make lint` (or `pre-commit run --all-files golangci-lint-full`)
 - Ensure `go mod verify` passes (validates module checksums)
 
 ---
@@ -387,3 +545,82 @@ Use:
 - GitLab: `glab mr note <number> --message "Created by Řehoř..."`
 
 This ensures reviewers know the PR/MR was automated and requires human verification.
+
+---
+
+## Slack Notifications
+
+Send Slack notifications at key milestones using the `SLACK_WEBHOOK_URL` environment variable.
+
+**When to notify**:
+1. After successful proactive update with passing tests
+2. After successful update with codebase fixes
+3. When proactive update is blocked by incompatible changes
+4. After PR/MR creation for any CVE fix
+
+**Notification formats**:
+
+**Success - Tests passing without fixes**:
+```
+✅ CVE {CVE-ID} - Proactive update successful
+
+{Component}: Updated {package} from {old_version} to {new_version}
+Status: All tests passing
+Current version was below vulnerable range but outdated.
+
+🔗 PR: {PR_URL}
+📋 Jira: {JIRA_URL}
+```
+
+**Success - With codebase fixes**:
+```
+✅ CVE {CVE-ID} - Update with fixes successful
+
+{Component}: Updated {package} from {old_version} to {new_version}
+Fixed breaking changes:
+• {fix 1}
+• {fix 2}
+
+Status: All tests passing
+
+🔗 PR: {PR_URL}
+📋 Jira: {JIRA_URL}
+```
+
+**Blocked - Incompatible changes**:
+```
+⚠️ CVE {CVE-ID} - Proactive update blocked
+
+{Component}: Attempted update of {package} from {old_version} to {new_version}
+Current version is NOT vulnerable, but update failed.
+
+Reason: Breaking changes incompatible with codebase
+Blocking issues:
+• {issue 1}
+• {issue 2}
+
+Recommendation: Manual review needed for future upgrade planning
+
+📋 Jira: {JIRA_URL}
+```
+
+**Standard CVE fix (in vulnerable range)**:
+```
+🔒 CVE {CVE-ID} - Security fix applied
+
+{Component}: {package} vulnerability resolved
+Updated: {old_version} → {new_version}
+Status: All tests passing
+
+🔗 PR: {PR_URL}
+📋 Jira: {JIRA_URL}
+```
+
+**Implementation**:
+```bash
+curl -X POST "${SLACK_WEBHOOK_URL}" \
+  -H 'Content-Type: application/json' \
+  -d "{\"text\": \"YOUR_MESSAGE_HERE\"}"
+```
+
+Always include PR/MR URLs in Slack notifications so reviewers can quickly access them.

@@ -57,10 +57,17 @@ If package doesn't appear in syft at all → NOT AFFECTED (not present in runtim
 
 **CRITICAL**: Even when a package version is BELOW the vulnerable range (technically "not affected"), if the installed version is significantly outdated, attempt a proactive update to the latest stable version.
 
+**EXCEPTION — Transitive dependencies below vulnerable range**: Do NOT apply proactive updates when BOTH of these conditions are true:
+1. The installed version is **below** the vulnerable range (not affected), AND
+2. The package is a **transitive dependency** (not listed directly in package.json/requirements.txt/go.mod)
+
+Team preference is to leave transitive dependencies alone if they are not in the vulnerable range. Only use overrides (e.g., npm `overrides`, explicit `require` in go.mod, pinning in requirements.txt) for transitive dependencies when the dependency **IS** in the vulnerable range and the parent package doesn't provide a fix.
+
 **When to apply**:
 - Installed version is well below the vulnerable range (e.g., vulnerable range is 18.x but installed is 14.x)
 - A newer stable version exists that is outside the vulnerable range
 - The package is actively maintained with security fixes
+- **The package is a direct dependency** (or a transitive dependency where the exception above does not apply)
 
 **Workflow**:
 

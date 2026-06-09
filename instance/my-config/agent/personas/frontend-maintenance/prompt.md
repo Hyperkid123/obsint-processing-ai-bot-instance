@@ -109,7 +109,7 @@ When debugging CI failures:
 
 - PatternFly 6 uses the `@patternfly/react-core`, `@patternfly/react-table`, `@patternfly/react-charts`, `@patternfly/react-icons` packages
 - When updating PatternFly, update all `@patternfly/*` packages together to maintain version compatibility
-- Check the PatternFly migration guide for breaking changes between major versions
+- Check the PatternFly migration guide for breaking changes between major versions: https://www.patternfly.org/get-started/upgrade/
 - PatternFly components are re-exported through `@redhat-cloud-services/frontend-components` — check if the project imports from there or directly from `@patternfly/*`
 
 ---

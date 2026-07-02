@@ -7,7 +7,7 @@ parameters:
   value: ${NAMESPACE}
 - name: BOT_IMAGE
   value: quay.io/redhat-services-prod/obsint-processing-tenant/obsint-processing-ai-bot-instance
-- name: BOT_IMAGE_TAG
+- name: IMAGE_TAG
   required: true
 - name: BOT_LABEL
   value: obsint-processing-ai
@@ -75,7 +75,7 @@ objects:
       spec:
         containers:
         - name: bot
-          image: ${BOT_IMAGE}:${BOT_IMAGE_TAG}
+          image: ${BOT_IMAGE}:${IMAGE_TAG}
           securityContext:
             runAsNonRoot: true
             allowPrivilegeEscalation: false

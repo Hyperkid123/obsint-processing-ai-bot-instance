@@ -25,9 +25,10 @@ task, including production promotion; there is no cross-provider task handoff.
 The OpenAI profiles are scoped to Jira grooming, configured Jenkins monitoring,
 and public GitHub repositories. Other repository hosts and their content in
 shared checkouts are outside their scope. Backlog-groomer applies the fixed
-`repo:app-interface` Jira label for standard service CVEs without a repository
-lookup. Productized OCP/ACM rules image CVEs receive their component repo label
-without `repo:app-interface`; their production gate is catalog publication.
+component repository labels without a repository lookup. It adds
+`repo:app-interface` only when the **Production image update** column in the
+[CVE component mapping](instance/backlog-groomer/agent/.opencode/agents/backlog-grooming.md#cve-component-to-repo-mapping)
+is `app-interface`. Maintain that table when a component's release process changes.
 
 Native agent roles and delegation permissions do not create separate OS
 sandboxes. WatchDuty's primary agent owns task/memory updates, Slack reporting,

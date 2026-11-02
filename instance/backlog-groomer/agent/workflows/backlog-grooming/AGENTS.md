@@ -86,22 +86,14 @@ For each CVE ticket in the section:
 3. **Determine labels to assign**:
    - `obsint-processing-ai` (bot pickup label)
    - `repo:<matched-repo-name>` (component repo)
-   - `repo:app-interface` for standard CVEs whose production image is updated
-     through app-interface.
-
-   **Exception — productized rules images**: match case-insensitively and
-   apply the ACM rule first. If the component contains `lightspeed-services-acm`,
-   assign only `obsint-processing-ai` and
-   `repo:lightspeed-advisor-on-premise-ocp`. Otherwise, if it contains
-   `lightspeed-services-ocp` or `ocp-rules-rhel9`, assign only
-   `obsint-processing-ai` and `repo:rules-containers`. Do NOT add
-   `repo:app-interface` — these images are not deployed via app-interface;
-   their production update is the registry.redhat.io catalog publication via
-   the Konflux release flow.
+   - Read **Production image update** from the matched row in the same table.
+     Add `repo:app-interface` only if its value is `app-interface`. Other
+     mechanisms need only the two labels above. If the value is missing or
+     unknown, flag it for manual verification rather than adding
+     `repo:app-interface` by default.
 
 4. For each ticket, call `jira_update_issue` to ADD exactly the labels selected
-   in Step 3. Do not add `repo:app-interface` to a productized rules image
-   ticket.
+   in Step 3.
 
    Do NOT remove existing labels. Only add new ones.
 

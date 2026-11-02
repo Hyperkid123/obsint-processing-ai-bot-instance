@@ -34,45 +34,52 @@ no code changes. Apply fixed CVE labels directly without repository lookups.
 
 ### CVE Grooming
 
-CVE tickets need labels so the dev bot can pick them up. Standard CVE tickets use
-three labels; productized rules image CVEs are an exception and use only the
-first two:
+CVE tickets need two labels so the dev bot can pick them up:
+
 1. `obsint-processing-ai` — the bot pickup label
 2. `repo:<name>` — which repo contains the affected component
-3. `repo:app-interface` — for standard CVEs whose production image is updated
-   through app-interface. Do not add this label for productized rules images.
+
+Add `repo:app-interface` only when the production image update requires a
+change through app-interface, as defined in the **Production image update**
+column below. Other update mechanisms do not need this additional label.
+If the mechanism is missing or unknown, flag it for manual verification
+rather than assuming app-interface is required.
 
 **Parsing CVE summaries**: The format is `CVE-YYYY-NNNNN {Component}: {Package}: {Title}`.
 Extract the component (first token after the CVE ID) and look it up in the table below.
 
 #### CVE Component to Repo Mapping
 
-| Component (from CVE summary) | Repo label |
-|---|---|
-| aggregator | `repo:insights-results-aggregator` |
-| data-pipeline | `repo:data-pipeline` |
-| notification-writer | `repo:ccx-notification-writer` |
-| ocp-advisor-frontend, insights-ocp-advisor | `repo:ocp-advisor-frontend` |
-| ccx-messaging | `repo:insights-ccx-messaging` |
-| parquet-factory | `repo:parquet-factory` |
-| upgrades-inference | `repo:ccx-upgrades-inference` |
-| aggregator-cleaner, insights-results-aggregator-cleaner | `repo:insights-results-aggregator-cleaner` |
-| smart-proxy | `repo:insights-results-smart-proxy` |
-| content-renderer | `repo:insights-content-template-renderer` |
-| content-service | `repo:content-service` |
-| upgrades-data-eng | `repo:ccx-upgrades-data-eng` |
-| notification-service | `repo:ccx-notification-service` |
-| insights-behavioral-spec | `repo:insights-behavioral-spec` |
-| obsint-mocks | `repo:obsint-mocks` |
-| aggregator-exporter | `repo:insights-results-aggregator-exporter` |
-| processing-tools | `repo:processing-tools` |
-| insights-operator-utils | `repo:insights-operator-utils` |
-| ccx-upgrades-inference | `repo:ccx-upgrades-inference` |
-| ccx-upgrades-data-eng | `repo:ccx-upgrades-data-eng` |
-| ccx-notification-service | `repo:ccx-notification-service` |
-| ccx-notification-writer | `repo:ccx-notification-writer` |
-| Any component containing `lightspeed-services-acm` | `repo:lightspeed-advisor-on-premise-ocp` (see note below) |
-| Any component containing `lightspeed-services-ocp` or `ocp-rules-rhel9` | `repo:rules-containers` (see note below) |
+This table defines the repository and production update mechanism used for
+CVE labeling. Update the relevant row when a component's release process
+changes; add both values when adding a new component.
+
+| Component (from CVE summary) | Repo label | Production image update |
+|---|---|---|
+| aggregator | `repo:insights-results-aggregator` | app-interface |
+| data-pipeline | `repo:data-pipeline` | app-interface |
+| notification-writer | `repo:ccx-notification-writer` | app-interface |
+| ocp-advisor-frontend, insights-ocp-advisor | `repo:ocp-advisor-frontend` | app-interface |
+| ccx-messaging | `repo:insights-ccx-messaging` | app-interface |
+| parquet-factory | `repo:parquet-factory` | app-interface |
+| upgrades-inference | `repo:ccx-upgrades-inference` | app-interface |
+| aggregator-cleaner, insights-results-aggregator-cleaner | `repo:insights-results-aggregator-cleaner` | app-interface |
+| smart-proxy | `repo:insights-results-smart-proxy` | app-interface |
+| content-renderer | `repo:insights-content-template-renderer` | app-interface |
+| content-service | `repo:content-service` | app-interface |
+| upgrades-data-eng | `repo:ccx-upgrades-data-eng` | app-interface |
+| notification-service | `repo:ccx-notification-service` | app-interface |
+| insights-behavioral-spec | `repo:insights-behavioral-spec` | app-interface |
+| obsint-mocks | `repo:obsint-mocks` | app-interface |
+| aggregator-exporter | `repo:insights-results-aggregator-exporter` | app-interface |
+| processing-tools | `repo:processing-tools` | app-interface |
+| insights-operator-utils | `repo:insights-operator-utils` | app-interface |
+| ccx-upgrades-inference | `repo:ccx-upgrades-inference` | app-interface |
+| ccx-upgrades-data-eng | `repo:ccx-upgrades-data-eng` | app-interface |
+| ccx-notification-service | `repo:ccx-notification-service` | app-interface |
+| ccx-notification-writer | `repo:ccx-notification-writer` | app-interface |
+| Any component containing `lightspeed-services-acm` | `repo:lightspeed-advisor-on-premise-ocp` (see note below) | Konflux publication |
+| Any component containing `lightspeed-services-ocp` or `ocp-rules-rhel9` | `repo:rules-containers` (see note below) | Konflux publication |
 
 Match is case-insensitive. For productized rules images, match the ACM rule
 first; otherwise, match the OCP rule. This ensures an ACM component that also
@@ -88,10 +95,8 @@ image, managed in the public GitHub repository
 `RedHatInsights/lightspeed-advisor-on-premise-ocp` (built on top of the OCP
 rules image). Like `app-interface` and `rules-containers`, the ACM repo is a
 known fixed mapping that does not require a repository lookup in this
-profile — apply the label directly. Unlike every other CVE component, the
-production update for these images is **not** an app-interface MR (they are
-released by Konflux and published to registry.redhat.io), so the
-`repo:app-interface` label must NOT be added to their tickets.
+profile — apply the component label directly. In the table, "Konflux publication"
+means release and publication to registry.redhat.io.
 
 ### Common issues to flag
 

@@ -44,13 +44,15 @@ Do NOT create one task per ticket — use one batch task per cycle.
 The preflight script already fetched backlog tickets (zero token cost).
 The data is in your prompt. Do NOT call `jira_search` again.
 
-**Skip already-groomed tickets**: call `memory_search` with query
+**Skip already-assessed backlog tickets**: call `memory_search` with query
 "groomed tickets" to find prior grooming memories. Filter out any ticket
-keys that appear in previous grooming results. Only assess tickets not
-seen before.
+keys that appear in previous backlog assessments. This filter applies only
+to Step 2, not to the separate `## CVE Grooming` section: those CVEs still
+need Step 1.5 even if they appeared in a previous assessment.
 
-If no new tickets remain (all were previously groomed, or preflight
-returned empty), mark the batch task `done` with `summary`:
+Exit only if neither new backlog tickets nor CVE grooming tickets remain.
+An empty/skipped weekly backlog scan must not skip hourly CVE grooming.
+If both are empty, mark the batch task `done` with `summary`:
 "No new tickets to groom", write `data/cycle-sleep.json` with
 `{"recommended_sleep": 3600, "reason": "no_new_tickets"}`, and exit.
 
@@ -58,6 +60,9 @@ returned empty), mark the batch task `done` with `summary`:
 
 Check if your prompt contains a `## CVE Grooming` section (from the
 `02-cve-scan.py` preflight). If it does NOT exist, skip to Step 2.
+
+**This step is live.** Its CVE labels, story points, and sprint updates are
+authorized independently of the backlog-assessment dry-run in Step 3.
 
 For each CVE ticket in the section:
 
@@ -81,22 +86,22 @@ For each CVE ticket in the section:
 3. **Determine labels to assign**:
    - `obsint-processing-ai` (bot pickup label)
    - `repo:<matched-repo-name>` (component repo)
-   - `repo:app-interface` (always — every CVE needs a prod image update)
+   - `repo:app-interface` for standard CVEs whose production image is updated
+     through app-interface.
 
-   **Exception — productized rules images** (component matching
-   `lightspeed-services-acm/ocp-rules-rhel9` first, then `ocp-rules-rhel9` /
-   `lightspeed-services-ocp`): assign only `obsint-processing-ai` and the
-   component's repo label (`repo:lightspeed-advisor-on-premise-ocp` for the
-   ACM image, `repo:rules-containers` for the OCP image). Do NOT add
+   **Exception — productized rules images**: match case-insensitively and
+   apply the ACM rule first. If the component contains `lightspeed-services-acm`,
+   assign only `obsint-processing-ai` and
+   `repo:lightspeed-advisor-on-premise-ocp`. Otherwise, if it contains
+   `lightspeed-services-ocp` or `ocp-rules-rhel9`, assign only
+   `obsint-processing-ai` and `repo:rules-containers`. Do NOT add
    `repo:app-interface` — these images are not deployed via app-interface;
    their production update is the registry.redhat.io catalog publication via
-   the Konflux release flow, so the app-interface label and promotion path do
-   not apply.
+   the Konflux release flow.
 
-4. For each ticket, call `jira_update_issue` to ADD labels:
-   - `obsint-processing-ai`
-   - `repo:<matched-repo-name>`
-   - `repo:app-interface`
+4. For each ticket, call `jira_update_issue` to ADD exactly the labels selected
+   in Step 3. Do not add `repo:app-interface` to a productized rules image
+   ticket.
 
    Do NOT remove existing labels. Only add new ones.
 
@@ -110,9 +115,15 @@ For each CVE ticket in the section:
 
 5. **Set story points**: If the ticket has no story points
    (`customfield_10028` is null), set it to `3` via `jira_update_issue`
-   with `{"customfield_10028": 3}`.
+   with `{"customfield_10028": 3}`. Use the preflight's `story_points` value;
+   preserve existing estimates, including `0`. If it is `unknown`, call
+   `jira_get_issue` for `customfield_10028,customfield_10020` first. Missing
+   data or a failed lookup does not authorize overwriting either field.
 
-6. **Add to active sprint**: If the ticket is not already in a sprint,
+6. **Add to active sprint**: Read the preflight's `sprints` value; preserve
+   any active or future sprint assignment. If the value is missing/unknown
+   or does not expose sprint state, fetch/verify it before making a change.
+   If there is no active/future sprint (null, empty, or only closed sprints),
    find the active sprint on board `1553` (`CCX Core - Processing`)
    using `jira_get_sprints_from_board` with `state: "active"`, then
    call `jira_add_issues_to_sprint` to add the ticket.
@@ -169,7 +180,9 @@ If an error occurs, call `task_update` with `paused_reason`: "<what went wrong>"
 
 ### Step 3: Report results (DRY-RUN MODE)
 
-**DRY-RUN is currently ON.** Do NOT post comments or add labels to Jira.
+**Backlog assessment is in DRY-RUN.** Do not post assessment comments or add
+`ai-groomed` labels. This restriction applies only to Step 3; the live CVE
+updates in Step 1.5 still run, even when no backlog tickets need assessment.
 
 Build a `results` list with one entry per ticket:
 
@@ -191,7 +204,9 @@ Then call `task_update` with:
   }
   ```
 
-Do NOT call `jira_add_comment` or `jira_update_issue`.
+Do NOT call `jira_add_comment` or `jira_update_issue` for Step 3's assessments.
+Preserve the CVE grooming results in the batch summary when reporting them
+alongside backlog assessments or when the backlog section is empty.
 
 <!-- LIVE MODE — delete the DRY-RUN block above and uncomment this:
 

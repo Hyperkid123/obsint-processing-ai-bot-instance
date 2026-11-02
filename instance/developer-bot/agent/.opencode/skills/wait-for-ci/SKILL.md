@@ -9,9 +9,10 @@ description: >-
 # Wait for CI
 
 Use for GitHub PRs after creation, pushes, reruns, and before review reminders.
-App-interface is the only configured GitLab repository: send its
-`production-update` message immediately through the CVE workflow, including
+For GitLab, send app-interface's `production-update` or rules-containers'
+`rules-image-mr` message immediately through the CVE workflow, including
 `<!subteam^S043UGRST2L>`, without this gate or a CI-unverified fallback.
+These notices do not claim CI passed; repository CI and human review still apply.
 
 The helper uses Rehor's proxy-backed `gh` client; no tokens or login are needed.
 It checks the current commit and confirms success twice, 30 seconds apart. Pending CI
@@ -35,8 +36,9 @@ scheduler or sleep for a retry cooldown. Store independent deadlines in
 
 If older metadata contains a URL list and `ci_review_next_check`, migrate it to
 the map by assigning that saved time to each URL. The preflight accepts both.
-An app-interface MR in this map is only awaiting notification delivery: follow
-the workflow's immediate `production-update` path, without querying its CI.
+A GitLab MR in this map is only awaiting notification delivery: use the
+workflow's immediate `production-update` path for app-interface or
+`rules-image-mr` for rules-containers, without invoking this CI checker.
 
 Keep deferred/unverified requests pending. Remove a URL after its verified
 notification or final failure alert is delivered, or it closes/merges. Persist

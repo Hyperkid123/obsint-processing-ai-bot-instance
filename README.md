@@ -25,7 +25,9 @@ task, including production promotion; there is no cross-provider task handoff.
 The OpenAI profiles are scoped to Jira grooming, configured Jenkins monitoring,
 and public GitHub repositories. Other repository hosts and their content in
 shared checkouts are outside their scope. Backlog-groomer applies the fixed
-`repo:app-interface` Jira label for CVEs without a repository mapping or lookup.
+`repo:app-interface` Jira label for standard service CVEs without a repository
+lookup. Productized OCP/ACM rules image CVEs receive their component repo label
+without `repo:app-interface`; their production gate is catalog publication.
 
 Native agent roles and delegation permissions do not create separate OS
 sandboxes. WatchDuty's primary agent owns task/memory updates, Slack reporting,

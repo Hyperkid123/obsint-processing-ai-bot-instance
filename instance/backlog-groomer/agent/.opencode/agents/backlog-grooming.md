@@ -34,10 +34,13 @@ no code changes. Apply fixed CVE labels directly without repository lookups.
 
 ### CVE Grooming
 
-CVE tickets need three labels so the dev bot can pick them up:
+CVE tickets need labels so the dev bot can pick them up. Standard CVE tickets use
+three labels; productized rules image CVEs are an exception and use only the
+first two:
 1. `obsint-processing-ai` — the bot pickup label
 2. `repo:<name>` — which repo contains the affected component
-3. `repo:app-interface` — always added, every CVE fix needs a prod image update
+3. `repo:app-interface` — for standard CVEs whose production image is updated
+   through app-interface. Do not add this label for productized rules images.
 
 **Parsing CVE summaries**: The format is `CVE-YYYY-NNNNN {Component}: {Package}: {Title}`.
 Extract the component (first token after the CVE ID) and look it up in the table below.
@@ -68,15 +71,14 @@ Extract the component (first token after the CVE ID) and look it up in the table
 | ccx-upgrades-data-eng | `repo:ccx-upgrades-data-eng` |
 | ccx-notification-service | `repo:ccx-notification-service` |
 | ccx-notification-writer | `repo:ccx-notification-writer` |
-| lightspeed-services-ocp/ocp-rules-rhel9 | `repo:rules-containers` (see note below) |
-| ocp-rules-rhel9 | `repo:rules-containers` (see note below) |
-| lightspeed-services-acm/ocp-rules-rhel9 | `repo:lightspeed-advisor-on-premise-ocp` (see note below) |
+| Any component containing `lightspeed-services-acm` | `repo:lightspeed-advisor-on-premise-ocp` (see note below) |
+| Any component containing `lightspeed-services-ocp` or `ocp-rules-rhel9` | `repo:rules-containers` (see note below) |
 
-Match is case-insensitive. If the component doesn't match any entry, flag as
-"unknown component — needs manual mapping" and skip labeling for that ticket.
-When several rows could match, prefer the most specific one:
-`lightspeed-services-acm/ocp-rules-rhel9` (ACM image) must be matched before
-the bare `ocp-rules-rhel9` row (OCP image).
+Match is case-insensitive. For productized rules images, match the ACM rule
+first; otherwise, match the OCP rule. This ensures an ACM component that also
+contains `ocp-rules-rhel9` maps to the ACM repo, not the OCP repo. If the
+component doesn't match any entry, flag as "unknown component — needs manual
+mapping" and skip labeling for that ticket.
 
 **Note — productized rules images**: `lightspeed-services-ocp/ocp-rules-rhel9`
 is the productized OCP rules image, managed in the private GitLab repository

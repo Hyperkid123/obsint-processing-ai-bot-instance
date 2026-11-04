@@ -12,10 +12,13 @@ Exit conditions:
   - Outside watch window -> skip
   - Exact expected report present and new -> send Slack message, persist marker, skip
   - Exact expected report already posted -> skip
-  - Exact expected report missing inside the watch window -> start an AI session
-    to search for moved/renamed/misfiled Advisor reports and warn if the format
-    changed. This is intentionally not a hard failure; missing reports are OK,
-    but silent format drift is not.
+  - Exact expected report missing before the final AI check window -> skip and
+    keep polling hourly
+  - Exact expected report still missing during the final AI check window ->
+    start one AI session to search for moved/renamed/misfiled Advisor reports,
+    mark this weekly watcher complete, and skip the rest of the week. This is
+    intentionally not a hard failure; missing reports are OK, but silent format
+    drift is not.
 """
 
 from __future__ import annotations
@@ -44,6 +47,10 @@ WATCH_START_WEEKDAY = int(os.environ.get("WEEKLY_STATUS_START_WEEKDAY", "2"))  #
 WATCH_START_HOUR = int(os.environ.get("WEEKLY_STATUS_START_HOUR", "15"))
 WATCH_END_WEEKDAY = int(os.environ.get("WEEKLY_STATUS_END_WEEKDAY", "3"))  # Thu
 WATCH_END_HOUR = int(os.environ.get("WEEKLY_STATUS_END_HOUR", "12"))
+# Run the expensive/AI fallback once near the end of the watch window. Before
+# then, a missing exact file only means "not published yet".
+AI_CHECK_WEEKDAY = int(os.environ.get("WEEKLY_STATUS_AI_CHECK_WEEKDAY", str(WATCH_END_WEEKDAY)))
+AI_CHECK_HOUR = int(os.environ.get("WEEKLY_STATUS_AI_CHECK_HOUR", str(max(WATCH_END_HOUR - 1, 0))))
 
 STATE_FILE = Path(os.environ.get("BOT_DATA_DIR", "data")) / "weekly-status-posted.json"
 # Send weekly status to the CVE/watchduty-style channel when configured. Fall
@@ -79,6 +86,10 @@ def _in_watch_window(now: datetime) -> bool:
 
 def _report_path(target: date) -> str:
     return f"reports/{target:%Y}/{target:%Y-%m-%d}/{REPORT_RELATIVE_PATH}"
+
+
+def _ai_check_due(now: datetime) -> bool:
+    return (now.weekday(), time(now.hour, now.minute)) >= (AI_CHECK_WEEKDAY, time(AI_CHECK_HOUR, 0))
 
 
 def _gh_api(args: list[str], *, raw: bool = False) -> subprocess.CompletedProcess[str]:
@@ -144,7 +155,24 @@ def _slack_safe_excerpt(content: str, limit: int = 2300) -> str:
     return text[:limit].rstrip() + "\n…"
 
 
-def _missing_report_prompt(now: datetime, target: date, expected_path: str) -> str:
+def _mark_path_check_requested(state: dict, state_key: str, now: datetime, target: date, expected_path: str) -> None:
+    existing = state.get(state_key, {})
+    existing.update({
+        "posted": False,
+        "path_check_requested": True,
+        "closed": True,
+        "path_check_requested_at": now.isoformat(),
+        "repo": REPORT_REPO,
+        "ref": REPORT_REF,
+        "path": expected_path,
+        "target_date": f"{target:%Y-%m-%d}",
+        "reason": "expected report missing at final AI check window",
+    })
+    state[state_key] = existing
+    _save_state(state)
+
+
+def _missing_report_prompt(now: datetime, target: date, expected_path: str, state_key: str) -> str:
     expected_url = f"https://github.com/{REPORT_REPO}/blob/{REPORT_REF}/{expected_path}"
     return f"""## Advisor weekly status path check
 
@@ -156,6 +184,10 @@ The expected Advisor weekly status file was not found during the publication wat
 - Expected Friday folder date: `{target:%Y-%m-%d}`
 - Expected path: `{expected_path}`
 - Expected URL: {expected_url}
+- Dedup state file: `{STATE_FILE}`
+- Dedup state key: `{state_key}`
+
+The preflight has already marked this weekly watcher complete before starting this AI session so it will not search every hour if no file is found. If you find a moved/renamed report and announce it, update the same state key with the actual path/url and outcome.
 
 Please use GitHub CLI/API to check whether the Advisor/Lightspeed Advisor status report exists under a different path, date folder, team folder, or filename in `{REPORT_REPO}`. The usual format is:
 
@@ -169,9 +201,9 @@ gh api repos/{REPORT_REPO}/git/trees/{REPORT_REF}?recursive=1 \\
   --jq '.tree[].path' | grep -Ei '({target:%Y-%m-%d}|advisor|lightspeed|mpex)'
 ```
 
-If you find the Advisor status in a moved/renamed/misdated location, announce it in Slack with a clear note that the expected path changed, include the actual link, and store a dedup marker so this does not spam every hourly cycle.
+If you find the Advisor status in a moved/renamed/misdated location, announce it in Slack with a clear note that the expected path changed, include the actual link, and update the existing state key with the actual path/url and outcome.
 
-If you do not find any likely Advisor status file, do not send a Slack message just for absence unless this is the last configured check window or a human explicitly asked for absence notifications. It is acceptable for this weekly check to end without success.
+If you do not find any likely Advisor status file, do not send a Slack message just for absence unless a human explicitly asked for absence notifications. The preflight already marked this weekly check closed; it is acceptable for this weekly check to end without success.
 """.strip()
 
 
@@ -212,16 +244,24 @@ def main() -> None:
 
     target = _target_friday(now.date())
     path = _report_path(target)
+    state_key = f"{target:%G-W%V}:{path}"
+    state = _load_state()
+    already = state.get(state_key, {})
+    if already.get("closed") and not already.get("posted"):
+        _output("skip", f"Advisor weekly status check already closed for {target:%Y-%m-%d}")
+        return
+
     metadata = _fetch_report_metadata(path)
     if not metadata:
-        _output("start", _missing_report_prompt(now, target, path))
+        if not _ai_check_due(now):
+            _output("skip", f"Advisor weekly status not present yet before final AI check: {path}")
+            return
+        _mark_path_check_requested(state, state_key, now, target, path)
+        _output("start", _missing_report_prompt(now, target, path, state_key))
         return
 
     sha = metadata.get("sha", "")
     html_url = metadata.get("html_url") or f"https://github.com/{REPORT_REPO}/blob/{REPORT_REF}/{path}"
-    state_key = f"{target:%G-W%V}:{path}"
-    state = _load_state()
-    already = state.get(state_key, {})
     if already.get("sha") == sha and already.get("posted"):
         _output("skip", f"Advisor weekly status already announced for {target:%Y-%m-%d}")
         return

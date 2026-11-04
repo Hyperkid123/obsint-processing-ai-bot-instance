@@ -92,7 +92,10 @@ titles, labelled links, summaries, and next actions directly. Ordinary updates
 have no mentions; CVE alerts retain the WatchDuty group mention and their CI
 and production gates. Shared helpers' automatic Slack messages are suppressed
 where a formatted lifecycle message is composed, avoiding duplicate sends.
-The scheduled WatchDuty profile retains its own existing webhook.
+The scheduled WatchDuty profile retains its own existing webhook. Its Advisor
+weekly-status watcher can use `WEEKLY_STATUS_SLACK_WEBHOOK_URL` as an optional
+override so those announcements go to the CVE/status channel instead of the
+Jenkins WatchDuty channel.
 
 Notifications use immediate mode. Daily digest scheduling is not enabled;
 the pinned memory-server's digest sender uses the workflow-specific `msg`
@@ -118,6 +121,7 @@ REHOR_WORKSPACE_OWNER_UID=1000
 REHOR_VERTEX_PROXY_URL=http://${PROXY_NAME}:8443
 REHOR_MODEL_PROXY_URL=http://${PROXY_NAME}:8450/v1
 REHOR_MODEL_PROXY_TOKEN=rehor-runtime
+WEEKLY_STATUS_SLACK_WEBHOOK_URL=<optional CVE/status-channel webhook override>
 ```
 
 The last value is a non-secret client placeholder. Model-provider credentials

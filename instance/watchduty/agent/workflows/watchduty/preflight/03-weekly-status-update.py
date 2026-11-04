@@ -46,7 +46,10 @@ WATCH_END_WEEKDAY = int(os.environ.get("WEEKLY_STATUS_END_WEEKDAY", "3"))  # Thu
 WATCH_END_HOUR = int(os.environ.get("WEEKLY_STATUS_END_HOUR", "12"))
 
 STATE_FILE = Path(os.environ.get("BOT_DATA_DIR", "data")) / "weekly-status-posted.json"
-SLACK_WEBHOOK_URL = os.environ.get("SLACK_WEBHOOK_URL", "")
+# Send weekly status to the CVE/watchduty-style channel when configured. Fall
+# back to the instance webhook so local/staging runs remain non-fatal, but prod
+# should set WEEKLY_STATUS_SLACK_WEBHOOK_URL to the CVE-channel webhook.
+SLACK_WEBHOOK_URL = os.environ.get("WEEKLY_STATUS_SLACK_WEBHOOK_URL") or os.environ.get("SLACK_WEBHOOK_URL", "")
 
 
 def _output(status: str, content: str) -> None:

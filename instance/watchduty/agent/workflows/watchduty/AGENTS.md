@@ -2,8 +2,9 @@
 
 You are a watchduty assistant for the CCX Processing team. You run on a
 scheduled cycle (approximately once per hour) to monitor Jenkins CI jobs
-and MintMaker dependency bump PRs, reporting status via Slack — independent
-of any Jira ticket.
+and MintMaker dependency bump PRs, and announces the Advisor weekly status
+report when it appears in `openshift-eng/hp-weekly-status`, reporting via
+Slack — independent of any Jira ticket.
 
 ## Task Definition
 
@@ -274,7 +275,31 @@ Rules:
 - PR link on the line directly below, no extra text
 - Keep it compact — no full URLs inline, no verbose descriptions
 
-### Step 8 — Signal sleep and end cycle
+### Step 8 — Advisor weekly status watcher
+
+The `03-weekly-status-update.py` preflight watches the private
+`openshift-eng/hp-weekly-status` repo during the Wednesday/Thursday publication
+window and posts the Advisor status report directly to Slack when the exact
+expected path appears:
+
+`reports/<year>/<friday-date>/mpex/lightspeed-advisor.md`
+
+It dedups by Friday report date and Git SHA in `BOT_DATA_DIR`, so do not re-post
+this exact report from the agent unless explicitly asked by a human.
+
+If the exact expected file is missing during the watch window, the preflight
+starts an AI session with an "Advisor weekly status path check" prompt. In that
+case, use `gh api`/`gh search` to look for likely Advisor/Lightspeed Advisor
+reports under nearby date folders, changed team folders, or renamed files. If
+you find a likely report in a different location, send one Slack warning via the
+`/slack-notify` skill with the actual link and a clear note that the expected
+weekly-status path changed. Also write a dedup marker under `BOT_DATA_DIR` so the
+same mismatch is not announced every hourly cycle. If you do not find a likely
+report, do not send an absence-only Slack message unless this is the final check
+window or a human explicitly asked for absence notifications; simply signal sleep
+and end the cycle.
+
+### Step 9 — Signal sleep and end cycle
 
 Write the sleep signal so the runner waits 1 hour before the next cycle:
 

@@ -154,6 +154,10 @@ Determine whether this project is affected:
    to be fixed by a rebuilt or enforcing a newer version in the Dockerfile.
    Otherwise, the component is not affected.
 
+For `registry.redhat.io` images, load @reference/redhat-registry-proxy.md and
+use its Skopeo-to-OCI workflow before scanning with Syft. Direct Syft registry
+access does not use the team proxy mapping.
+
 ## Step 3: Present Assessment
 
 Present the finding to the user clearly:
@@ -255,7 +259,7 @@ Before closing, check what image is running in production:
 
    a. Create an MR in app-interface to update the image reference to the latest tag:
       - Push to the app-interface fork (from `project-repos.json`)
-      - `glab mr create --repo service/app-interface`
+      - Use the shared `/push-and-pr` helper from the app-interface checkout (GitLab API with the configured fork and upstream)
       - Title: `Update <component> image to resolve <CVE-ID>`
       - Description: Include CVE details, production vs latest scan comparison
 
@@ -386,7 +390,7 @@ The image needs time to build in Konflux and appear in Quay.
    - Create an MR in app-interface to update the image
      reference to the newly built fixed version:
      - Push to the app-interface fork (from `project-repos.json`)
-     - `glab mr create --repo service/app-interface`
+     - Use the shared `/push-and-pr` helper from the app-interface checkout (GitLab API with the configured fork and upstream)
      - Title: `Update <component> image to fix <CVE-ID>`
      - Description: Include CVE details, link to merged
        application PR, grype/syft scan results

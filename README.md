@@ -12,7 +12,9 @@ shows task progress and bot activity.
 
 All profiles use native OpenCode V2 through the coordinator execution engine.
 The `dev-bot` submodule pins the merged runtime at
-`e6b0fda738c71b8be694b8711cf32e53eee59c9b` (OpenCode CLI/client 2.1.2).
+`46e07753b6caaab649d306b397c956c3cc3c851e` (OpenCode CLI/client 2.1.2).
+This runtime uses a per-cycle USD cost budget (`claude.budgetUsd` in its
+`config.json`, default `5`) instead of the previous tool-call limit.
 
 | Profile | Provider and model | Work |
 | --- | --- | --- |
@@ -116,7 +118,6 @@ The [bot template](deploy/template.yaml) sets:
 ```text
 BOT_EXECUTION_ENGINE=coordinator
 REHOR_OPENCODE_DEPLOYMENT_CONFIG=/home/botuser/app/${BOT_CONFIG_PATH}/opencode-deployment.json
-REHOR_OPENCODE_MAX_TOOL_CALLS=200
 REHOR_WORKSPACE_OWNER_UID=1000
 REHOR_VERTEX_PROXY_URL=http://${PROXY_NAME}:8443
 REHOR_MODEL_PROXY_URL=http://${PROXY_NAME}:8450/v1
@@ -131,11 +132,52 @@ Vertex must allow both `claude-opus-4-6` and `claude-sonnet-4-6`. NetworkPolicy
 permits the corresponding proxy ports, 8443 and 8450. Memory remains shared;
 GlitchTip keeps its separate team Secret and proxy endpoint.
 
-The current GitOps proxy pin (`56fe0e6...`) predates OpenAI support. The companion
-app-interface MR upgrades it to the released proxy
-`e6b0fda738c71b8be694b8711cf32e53eee59c9b` and explicitly allows Luna, using the
-existing provider credentials. The registry manifest was verified as
-`sha256:cb95369189e9f373c33174799ce5ac64e3f14614bbdee9f4fc429c2385581005`.
+The companion team GitOps update pins the released proxy
+`46e07753b6caaab649d306b397c956c3cc3c851e`, which includes OpenAI and Red Hat
+registry support plus the Quay/Grype egress fixes. The runner's submodule update
+does not update the separately deployed proxy image. See
+[the team deployment](https://gitlab.cee.redhat.com/service/app-interface/-/blob/master/data/services/insights/platform-frontend-ai-dev/obsint-deploy.yaml).
+
+## Optional Red Hat registry pulls
+
+The [proxy template](deploy/proxy-template.yaml) exposes a pull-only endpoint on
+port 8451. It stays disabled until the optional Vault-backed Secret named by
+`REGISTRY_SECRET_NAME` (default `obsint-processing-registry-redhat`) contains
+both `registry-redhat-username` and `registry-redhat-token`. One missing
+credential is a proxy startup error. Credentials are supplied only to the proxy.
+
+The team already provisions `obsint-processing-registry-redhat` through its
+[namespace Vault resource](https://gitlab.cee.redhat.com/service/app-interface/-/blob/master/data/services/insights/platform-frontend-ai-dev/namespaces/stage.hcmais01ue1.yml),
+added in [app-interface !217237](https://gitlab.cee.redhat.com/service/app-interface/-/merge_requests/217237).
+Reconcile both proxy and bot templates to apply their port 8451 network rules,
+and deploy the runner built from this change to install Skopeo.
+Syncing profile instructions alone does not install that package.
+
+The CVE skill configures access only when a Red Hat image is needed. It derives
+the team proxy hostname from the existing `EXECUTOR_ADDR` and writes a
+`~/.config/containers/registries.conf.d/90-rehor-redhat.conf` drop-in mapping
+only `registry.redhat.io` to the Service on port 8451. Other registries and client
+settings keep their existing behavior. There is no custom routing startup script.
+The skill also preserves the Red Hat signature-store configuration for the
+proxy hostname; the client's signature policy stays enabled.
+Podman, Buildah, and Skopeo keep the original image references. No registry login
+is needed in the bot. HTTP is used only to the internal proxy; upstream traffic
+uses verified HTTPS. `NO_PROXY` already includes the proxy Service.
+
+Syft scans use Skopeo to download an OCI image through the proxy, then inspect
+that local image. Follow the [registry access reference](instance/developer-bot/agent/.opencode/skills/resolve-cve/reference/redhat-registry-proxy.md)
+for digest-pinned scans and nested RPM lockfile helpers. Remote Podman needs the
+mapping on its service host too.
+
+To disable, remove both registry Secret keys and recycle the proxy. To remove
+client routing too, remove the skill's `90-rehor-redhat.conf` drop-in and
+`registries.d/team-redhat-proxy.yaml` signature-store entry.
+Rehor's authentication client ID
+is fixed to `rehor`; there is no `REGISTRY_CLIENT_NAME` template parameter.
+
+See [Rehor #605](https://github.com/OpenShift-Fleet/rehor/pull/605) and its
+[registry proxy guide](https://github.com/OpenShift-Fleet/rehor/blob/master/docs/redhat-registry-proxy.md)
+for authentication, credential rotation, and CDN access.
 
 ## Paired rollout and rollback
 
@@ -183,5 +225,5 @@ git diff --check
 Local validation covers coordinator configuration/rendering, native definitions,
 helper resolution, and environment compatibility. It does not establish a successful Linux
 image build, real provider access, MCP connectivity, or live deployment behavior.
-Use the staging gates above and the pinned [Řehoř migration guide](https://github.com/OpenShift-Fleet/rehor/blob/e6b0fda738c71b8be694b8711cf32e53eee59c9b/docs/migrations/opencode-migration.md)
+Use the staging gates above and the pinned [Řehoř migration guide](https://github.com/OpenShift-Fleet/rehor/blob/46e07753b6caaab649d306b397c956c3cc3c851e/docs/migrations/opencode-migration.md)
 for those checks.

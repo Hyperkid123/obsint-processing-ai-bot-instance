@@ -240,9 +240,13 @@ Also record it in task state as backup. For an app-interface gate, use
 `{"prod_gate": "open", "next_step": "await registry.redhat.io catalog publication",
 "production_target": "<published image/tag; include fixed OCP base tag for inherited ACM CVEs>"}`.
 
-**Every cycle, before any `/wrap-up` or close/`Release Pending` transition**: scan
-the ticket's Jira comments for a `[PROD-GATE:OPEN]` marker (and/or check task
-metadata `prod_gate == "open"`). If found → the ticket is gated:
+**Every cycle, before any `/wrap-up` or close/`Release Pending` transition**: read
+the ticket's gate markers in chronological order for the current production
+target. A later verified `[PROD-GATE:CLEARED]` supersedes an earlier
+`[PROD-GATE:OPEN]`; an old open comment alone must not reopen a cleared gate.
+Also check task metadata `prod_gate`. If comments and metadata disagree, verify
+the production evidence and reconcile them before closing. If the latest gate
+is open or the required evidence is missing, the ticket remains gated:
 - Do NOT `/wrap-up`, do NOT close. Keep it in "Code Review".
 - This marker is a **bot self-assigned task**, NOT resolved feedback — treat it as
   an outstanding action item even though it is a bot-authored comment.

@@ -63,10 +63,9 @@ FROM registry.redhat.io/lightspeed-services-ocp/ocp-rules-rhel9:<date-tag>
 
 The ACM image starts from the OCP rules image, but its own install/cleanup
 steps can replace or remove inherited packages. Scan the affected published
-ACM image with
-`syft registry.redhat.io/lightspeed-services-acm/ocp-rules-rhel9:<tag> --from registry -o json`
-(record its resolved digest), then classify the affected package using the
-Dockerfile and lockfiles for that build:
+ACM image using the Skopeo-to-OCI workflow in @reference/redhat-registry-proxy.md.
+Record its published tag and resolved digest, then classify the affected package
+using the Dockerfile and lockfiles for that build:
 
 | Origin | Typical packages | Fix location |
 | --- | --- | --- |
@@ -126,7 +125,8 @@ Dockerfile and lockfiles for that build:
    `bash scripts/update_rpm_lockfile.sh` inside a `linux/amd64` UBI9
    container. The `FROM` image is the rpm-lockfile context image, so a stale
    base tag locks wrong versions.
-3. **Verify locally**: `podman build .` (non-hermetic builds fall back to
+3. **Verify locally**: `podman build .` (or Buildah using
+   @reference/redhat-registry-proxy.md; non-hermetic builds fall back to
    public PyPI), then `syft`/`grype` the local image to confirm the package
    moved outside the vulnerable range.
 
@@ -135,9 +135,10 @@ Dockerfile and lockfiles for that build:
 1. Update `FROM registry.redhat.io/lightspeed-services-ocp/ocp-rules-rhel9:<new-tag>`
    in `Dockerfile` to the fixed published tag.
 2. Regenerate `rpms.lock.yaml` — the base image is the rpm-lockfile context
-   image, so the lockfile must match the new base (needs a
-   `registry.redhat.io` pull secret in `scripts/.dockerconfig.json` for
-   `skopeo`).
+   image, so the lockfile must match the new base. Follow
+   @reference/redhat-registry-proxy.md for the nested container mapping and
+   credential-free `scripts/.dockerconfig.json` required by the helper.
+   Registry credentials stay only in the team proxy container.
 3. Check ACM's Python lockfile for any affected shared package. If its pin
    would retain/reinstall a vulnerable version, update the matching input
    constraint and regenerate `requirements.txt` with the helper. Verify the

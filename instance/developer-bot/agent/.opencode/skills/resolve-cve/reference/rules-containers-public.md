@@ -103,16 +103,19 @@ Notes:
 
 ## Resolution workflow
 
-1. **Assess**: scan the published/internal image with
-   `syft <image> --from registry -o json` (use the currently published tag
-   from the catalog page, or `:latest`). Map each affected package to its pin
+1. **Assess**: for the published `registry.redhat.io` image, follow
+   @reference/redhat-registry-proxy.md to download through Skopeo and scan the
+   local OCI image with Syft (use the affected catalog tag, or `:latest` when
+   appropriate). Direct Syft registry scans apply only to internal Quay images.
+   Map each affected package to its pin
    location in the table above. Compare against the vulnerable range.
 2. **Fix on `public`**: create a branch from freshly fetched `upstream/public`, bump the pin
    (or base image tag), regenerate the matching lockfile(s). If lockfile
    regeneration cannot run (missing Lightwell netrc / UBI9 container), stop,
    report the exact blocker, and request manual help — do not hand-edit
    hashed lockfiles.
-3. **Verify locally**: `podman build -f public.Containerfile .` then
+3. **Verify locally**: `podman build -f public.Containerfile .` (or Buildah
+   using @reference/redhat-registry-proxy.md) then
    `syft`/`grype` the local image to confirm the package version moved
    outside the vulnerable range.
 4. **MR to `public`**: push the task branch to the bot fork

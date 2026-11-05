@@ -14,5 +14,10 @@ ARCH=$(uname -m | sed 's/x86_64/amd64/' | sed 's/aarch64/arm64/')
 curl -fsSL "https://github.com/anchore/syft/releases/download/v1.21.0/syft_1.21.0_linux_${ARCH}.tar.gz" \
     | tar -xz -C /usr/local/bin syft
 
+# Skopeo downloads images through Rehor for the CVE skill's local Syft scans.
+dnf --disableplugin=subscription-manager --disablerepo='*' --enablerepo='ubi-*' \
+    install -y --nodocs skopeo
+dnf clean all
+
 
 echo "Instance setup complete: obsint-processing-ai-bot-instance"

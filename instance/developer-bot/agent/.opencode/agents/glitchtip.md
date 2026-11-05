@@ -1,7 +1,7 @@
 ---
 description: "Investigates GlitchTip errors and implements scoped fixes with deployment verification evidence."
 mode: subagent
-model: vertex/claude-opus-4-6
+model: rehor-openai/gpt-6.1-sol
 permissions:
   - action: subagent
     resource: "*"

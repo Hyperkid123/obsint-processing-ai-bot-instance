@@ -25,8 +25,8 @@ parameters:
 - name: VERTEX_ALLOWED_MODELS
   required: true
 - name: OPENAI_ALLOWED_MODELS
-  description: OpenAI model IDs served to the scheduled OpenCode profiles
-  value: gpt-6-luna
+  description: OpenAI model IDs served to the OpenCode profiles
+  value: gpt-6-luna,gpt-6.1-terra,gpt-6.1-sol
 - name: REGISTRY_SECRET_NAME
   description: Optional Vault-backed Secret with registry-redhat-username and registry-redhat-token
   value: obsint-processing-registry-redhat

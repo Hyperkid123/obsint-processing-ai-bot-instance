@@ -4,27 +4,37 @@
     "/home/botuser/data",
     "/tmp/opencode"
   ],
-  "smallModel": "vertex/claude-sonnet-4-6",
+  "smallModel": "rehor-openai/gpt-6-luna",
   "providers": [
     {
-      "id": "vertex",
-      "name": "Claude on Vertex via Rehor proxy",
+      "id": "rehor-openai",
+      "package": "@opencode/ai/providers/openai/responses",
+      "name": "Rehor OpenAI Responses",
       "settings": {
-        "baseURL": "{env:REHOR_VERTEX_PROXY_URL}"
+        "baseURL": "{env:REHOR_MODEL_PROXY_URL}",
+        "apiKey": "{env:REHOR_MODEL_PROXY_TOKEN}"
       },
       "models": {
-        "claude-opus-4-6": {
-          "name": "Claude Opus 4.6",
-          "limit": {
-            "context": 200000,
-            "output": 32000
+        "gpt-6-luna": {
+          "name": "GPT-6 Luna",
+          "capabilities": {
+            "reasoning": {
+              "supported": true
+            }
+          },
+          "settings": {
+            "reasoningEffort": "medium"
           }
         },
-        "claude-sonnet-4-6": {
-          "name": "Claude Sonnet 4.6",
-          "limit": {
-            "context": 200000,
-            "output": 32000
+        "gpt-6.1-sol": {
+          "name": "GPT-6.1 Sol",
+          "capabilities": {
+            "reasoning": {
+              "supported": true
+            }
+          },
+          "settings": {
+            "reasoningEffort": "medium"
           }
         }
       }

@@ -1,7 +1,7 @@
 ---
 description: "Implements and tests scoped Python backend changes using repository conventions."
 mode: subagent
-model: vertex/claude-opus-4-6
+model: rehor-openai/gpt-6.1-sol
 permissions:
   - action: subagent
     resource: "*"

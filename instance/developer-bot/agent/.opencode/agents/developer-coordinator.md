@@ -1,7 +1,7 @@
 ---
 description: Owns developer-bot task lifecycle and delegates scoped technical work to domain specialists.
 mode: primary
-model: vertex/claude-opus-4-6
+model: rehor-openai/gpt-6.1-sol
 permissions:
   - action: subagent
     resource: "*"

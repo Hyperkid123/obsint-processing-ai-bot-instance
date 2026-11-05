@@ -93,9 +93,9 @@ have no mentions; CVE alerts retain the WatchDuty group mention and their CI
 and production gates. Shared helpers' automatic Slack messages are suppressed
 where a formatted lifecycle message is composed, avoiding duplicate sends.
 The scheduled WatchDuty profile retains its own existing webhook. Its Advisor
-weekly-status watcher can use `WEEKLY_STATUS_SLACK_WEBHOOK_URL` as an optional
-override so those announcements go to the CVE/status channel instead of the
-Jenkins WatchDuty channel.
+and MPEX weekly-status watcher can use `WEEKLY_STATUS_SLACK_WEBHOOK_URL` as an
+optional override so those announcements go to the CVE/status channel instead of
+the Jenkins WatchDuty channel.
 
 Notifications use immediate mode. Daily digest scheduling is not enabled;
 the pinned memory-server's digest sender uses the workflow-specific `msg`

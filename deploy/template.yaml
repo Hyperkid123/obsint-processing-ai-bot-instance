@@ -49,7 +49,7 @@ parameters:
 - name: SLACK_WEBHOOK_URL
   value: ""
 - name: WEEKLY_STATUS_SLACK_WEBHOOK_URL
-  description: Optional override used by WatchDuty's Advisor weekly-status watcher; set to the CVE-channel webhook when different from the Jenkins/watchduty webhook.
+  description: Optional override used by WatchDuty's weekly-status watcher; set to the CVE/status-channel webhook when different from the Jenkins/watchduty webhook.
   value: ""
 - name: KEDA_TIMEZONE
   value: "Europe/Prague"
@@ -181,7 +181,7 @@ objects:
           # One configured Slack destination per bot; developer-bot shares its app webhook.
           - name: SLACK_WEBHOOK_URL
             value: ${SLACK_WEBHOOK_URL}
-          # Optional CVE-channel destination for WatchDuty's Advisor weekly status watcher.
+          # Optional CVE/status-channel destination for WatchDuty's weekly status watcher.
           - name: WEEKLY_STATUS_SLACK_WEBHOOK_URL
             value: ${WEEKLY_STATUS_SLACK_WEBHOOK_URL}
           # Proxy — Service selected by PROXY_NAME

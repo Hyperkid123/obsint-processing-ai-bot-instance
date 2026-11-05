@@ -1,24 +1,24 @@
 #!/usr/bin/env python3
-"""Pre-flight: watch for the Advisor weekly status report and notify Slack.
+"""Pre-flight: watch for Advisor and MPEX weekly status reports.
 
 The HP weekly status repo uses Friday-dated report folders, e.g.:
   reports/2026/2026-10-30/mpex/lightspeed-advisor.md
+  reports/2026/2026-10-30/mpex.md
 
-Advisor managers are expected to publish on Wednesday at/after 15:00 Prague
-for that week's Friday folder. This preflight polls hourly during the watch
-window and posts exactly once per report SHA when the file appears.
+This preflight polls exact expected paths during Friday working hours and posts
+new reports to Slack. On Monday it performs one AI-assisted fallback check for
+any still-missing report, then marks that weekly watcher closed so the bot does
+not keep searching every hour.
 
 Exit conditions:
-  - Outside watch window -> skip
-  - Exact expected report present and new -> send Slack message, persist marker, skip
-  - Exact expected report already posted -> skip
-  - Exact expected report missing before the final AI check window -> skip and
-    keep polling hourly
-  - Exact expected report still missing during the final AI check window ->
-    start one AI session to search for moved/renamed/misfiled Advisor reports,
-    mark this weekly watcher complete, and skip the rest of the week. This is
-    intentionally not a hard failure; missing reports are OK, but silent format
-    drift is not.
+  - Outside Friday/Monday watch windows -> skip
+  - Expected report present and new -> send Slack message, persist marker, skip
+  - Expected report already posted -> skip
+  - Expected report missing on Friday -> skip and keep polling hourly
+  - Expected report still missing during Monday fallback -> start one AI session
+    to search for moved/renamed/misfiled reports, mark that report check closed,
+    and skip the rest of the week. Missing reports are OK; silent format drift is
+    what we want to catch.
 """
 
 from __future__ import annotations
@@ -28,35 +28,43 @@ import os
 import subprocess
 import sys
 import urllib.request
-from datetime import date, datetime, time
+from datetime import date, datetime, time, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
 TIMEZONE = os.environ.get("WEEKLY_STATUS_TIMEZONE", "Europe/Prague")
 REPORT_REPO = os.environ.get("WEEKLY_STATUS_REPO", "openshift-eng/hp-weekly-status")
 REPORT_REF = os.environ.get("WEEKLY_STATUS_REF", "main")
-REPORT_RELATIVE_PATH = os.environ.get(
-    "WEEKLY_STATUS_RELATIVE_PATH",
-    "mpex/lightspeed-advisor.md",
-)
 
-# Wednesday 15:00 through Thursday noon Prague by default. The Thursday cutoff
-# is intentionally configurable because KEDA/app-interface may keep the bot
-# awake for a longer team-specific window.
-WATCH_START_WEEKDAY = int(os.environ.get("WEEKLY_STATUS_START_WEEKDAY", "2"))  # Wed, Monday=0
-WATCH_START_HOUR = int(os.environ.get("WEEKLY_STATUS_START_HOUR", "15"))
-WATCH_END_WEEKDAY = int(os.environ.get("WEEKLY_STATUS_END_WEEKDAY", "3"))  # Thu
-WATCH_END_HOUR = int(os.environ.get("WEEKLY_STATUS_END_HOUR", "12"))
-# Run the expensive/AI fallback once near the end of the watch window. Before
-# then, a missing exact file only means "not published yet".
-AI_CHECK_WEEKDAY = int(os.environ.get("WEEKLY_STATUS_AI_CHECK_WEEKDAY", str(WATCH_END_WEEKDAY)))
-AI_CHECK_HOUR = int(os.environ.get("WEEKLY_STATUS_AI_CHECK_HOUR", str(max(WATCH_END_HOUR - 1, 0))))
+# Friday exact-path polling, Monday one-shot AI fallback. Weekday uses
+# datetime.weekday(): Monday=0, Friday=4.
+POLL_WEEKDAY = int(os.environ.get("WEEKLY_STATUS_POLL_WEEKDAY", "4"))
+POLL_START_HOUR = int(os.environ.get("WEEKLY_STATUS_POLL_START_HOUR", "8"))
+POLL_END_HOUR = int(os.environ.get("WEEKLY_STATUS_POLL_END_HOUR", "16"))
+AI_CHECK_WEEKDAY = int(os.environ.get("WEEKLY_STATUS_AI_CHECK_WEEKDAY", "0"))
+AI_CHECK_START_HOUR = int(os.environ.get("WEEKLY_STATUS_AI_CHECK_START_HOUR", "8"))
+AI_CHECK_END_HOUR = int(os.environ.get("WEEKLY_STATUS_AI_CHECK_END_HOUR", "12"))
 
 STATE_FILE = Path(os.environ.get("BOT_DATA_DIR", "data")) / "weekly-status-posted.json"
 # Send weekly status to the CVE/watchduty-style channel when configured. Fall
 # back to the instance webhook so local/staging runs remain non-fatal, but prod
 # should set WEEKLY_STATUS_SLACK_WEBHOOK_URL to the CVE-channel webhook.
 SLACK_WEBHOOK_URL = os.environ.get("WEEKLY_STATUS_SLACK_WEBHOOK_URL") or os.environ.get("SLACK_WEBHOOK_URL", "")
+
+DEFAULT_REPORTS = [
+    {
+        "id": "advisor",
+        "title": "Advisor / Lightspeed Advisor weekly status",
+        "path_template": "reports/{year}/{date}/mpex/lightspeed-advisor.md",
+        "search_hint": "advisor|lightspeed|mpex",
+    },
+    {
+        "id": "mpex",
+        "title": "MPEX weekly status rollup",
+        "path_template": "reports/{year}/{date}/mpex.md",
+        "search_hint": "mpex",
+    },
+]
 
 
 def _output(status: str, content: str) -> None:
@@ -68,28 +76,55 @@ def _now_local() -> datetime:
 
 
 def _target_friday(today: date) -> date:
-    """Return the Friday report date for the current Wed/Thu watch window."""
-    days_until_friday = 4 - today.weekday()  # Friday is 4
-    return today if days_until_friday == 0 else today.fromordinal(today.toordinal() + days_until_friday)
+    """Return the Friday report date for the current Friday/Monday cycle."""
+    weekday = today.weekday()
+    if weekday == AI_CHECK_WEEKDAY and AI_CHECK_WEEKDAY < POLL_WEEKDAY:
+        return today - timedelta(days=(7 - POLL_WEEKDAY + AI_CHECK_WEEKDAY))
+    if weekday <= POLL_WEEKDAY:
+        return today + timedelta(days=(POLL_WEEKDAY - weekday))
+    return today - timedelta(days=(weekday - POLL_WEEKDAY))
+
+
+def _in_hour_window(now: datetime, weekday: int, start_hour: int, end_hour: int) -> bool:
+    if now.weekday() != weekday:
+        return False
+    current = time(now.hour, now.minute)
+    return time(start_hour, 0) <= current < time(end_hour, 0)
 
 
 def _in_watch_window(now: datetime) -> bool:
-    weekday = now.weekday()
-    current = time(now.hour, now.minute)
-
-    if weekday == WATCH_START_WEEKDAY:
-        return current >= time(WATCH_START_HOUR, 0)
-    if weekday == WATCH_END_WEEKDAY:
-        return current < time(WATCH_END_HOUR, 0)
-    return False
-
-
-def _report_path(target: date) -> str:
-    return f"reports/{target:%Y}/{target:%Y-%m-%d}/{REPORT_RELATIVE_PATH}"
+    return _in_hour_window(now, POLL_WEEKDAY, POLL_START_HOUR, POLL_END_HOUR) or _ai_check_due(now)
 
 
 def _ai_check_due(now: datetime) -> bool:
-    return (now.weekday(), time(now.hour, now.minute)) >= (AI_CHECK_WEEKDAY, time(AI_CHECK_HOUR, 0))
+    return _in_hour_window(now, AI_CHECK_WEEKDAY, AI_CHECK_START_HOUR, AI_CHECK_END_HOUR)
+
+
+def _load_reports() -> list[dict]:
+    """Load report definitions from env or use Advisor + MPEX defaults.
+
+    WEEKLY_STATUS_REPORTS_JSON can override the defaults with a JSON array of:
+      {"id": "...", "title": "...", "path_template": "reports/{year}/{date}/...md", "search_hint": "..."}
+    """
+    raw = os.environ.get("WEEKLY_STATUS_REPORTS_JSON")
+    if not raw:
+        return DEFAULT_REPORTS
+    try:
+        reports = json.loads(raw)
+        if isinstance(reports, list) and reports:
+            return reports
+    except json.JSONDecodeError as exc:
+        print(f"WARN: invalid WEEKLY_STATUS_REPORTS_JSON, using defaults: {exc}", file=sys.stderr)
+    return DEFAULT_REPORTS
+
+
+def _report_path(report: dict, target: date) -> str:
+    template = report["path_template"]
+    return template.format(year=f"{target:%Y}", date=f"{target:%Y-%m-%d}")
+
+
+def _state_key(report: dict, target: date, path: str) -> str:
+    return f"{target:%G-W%V}:{report['id']}:{path}"
 
 
 def _gh_api(args: list[str], *, raw: bool = False) -> subprocess.CompletedProcess[str]:
@@ -134,7 +169,7 @@ def _save_state(state: dict) -> None:
     STATE_FILE.write_text(json.dumps(state, indent=2, sort_keys=True))
 
 
-def _slack_safe_excerpt(content: str, limit: int = 2300) -> str:
+def _slack_safe_excerpt(content: str, limit: int = 2000) -> str:
     """Keep the Slack post compact while preserving the manager-authored text."""
     if not content:
         return ""
@@ -155,7 +190,14 @@ def _slack_safe_excerpt(content: str, limit: int = 2300) -> str:
     return text[:limit].rstrip() + "\n…"
 
 
-def _mark_path_check_requested(state: dict, state_key: str, now: datetime, target: date, expected_path: str) -> None:
+def _mark_path_check_requested(
+    state: dict,
+    state_key: str,
+    now: datetime,
+    target: date,
+    report: dict,
+    expected_path: str,
+) -> None:
     existing = state.get(state_key, {})
     existing.update({
         "posted": False,
@@ -164,57 +206,84 @@ def _mark_path_check_requested(state: dict, state_key: str, now: datetime, targe
         "path_check_requested_at": now.isoformat(),
         "repo": REPORT_REPO,
         "ref": REPORT_REF,
+        "report_id": report["id"],
+        "title": report["title"],
         "path": expected_path,
         "target_date": f"{target:%Y-%m-%d}",
-        "reason": "expected report missing at final AI check window",
+        "reason": "expected report missing at Monday AI fallback window",
     })
     state[state_key] = existing
-    _save_state(state)
 
 
-def _missing_report_prompt(now: datetime, target: date, expected_path: str, state_key: str) -> str:
-    expected_url = f"https://github.com/{REPORT_REPO}/blob/{REPORT_REF}/{expected_path}"
-    return f"""## Advisor weekly status path check
+def _missing_report_prompt(now: datetime, target: date, missing: list[dict]) -> str:
+    lines = [
+        "## Weekly status path check",
+        "",
+        "One or more expected weekly status files were not found during the Monday fallback window.",
+        "The preflight has already marked these weekly watchers complete before starting this AI session, so it will not search every hour if no file is found.",
+        "",
+        f"- Current time: {now.isoformat()}",
+        f"- Repo: `{REPORT_REPO}`",
+        f"- Ref: `{REPORT_REF}`",
+        f"- Expected Friday folder date: `{target:%Y-%m-%d}`",
+        f"- Dedup state file: `{STATE_FILE}`",
+        "",
+        "Missing expected reports:",
+    ]
 
-The expected Advisor weekly status file was not found during the publication watch window.
+    grep_terms = {f"{target:%Y-%m-%d}"}
+    for item in missing:
+        report = item["report"]
+        expected_path = item["path"]
+        expected_url = f"https://github.com/{REPORT_REPO}/blob/{REPORT_REF}/{expected_path}"
+        grep_terms.update(str(report.get("search_hint", "")).split("|"))
+        lines.extend([
+            f"- {report['title']} (`{report['id']}`)",
+            f"  - Expected path: `{expected_path}`",
+            f"  - Expected URL: {expected_url}",
+            f"  - Dedup state key: `{item['state_key']}`",
+        ])
 
-- Current time: {now.isoformat()}
-- Repo: `{REPORT_REPO}`
-- Ref: `{REPORT_REF}`
-- Expected Friday folder date: `{target:%Y-%m-%d}`
-- Expected path: `{expected_path}`
-- Expected URL: {expected_url}
-- Dedup state file: `{STATE_FILE}`
-- Dedup state key: `{state_key}`
+    grep_expr = "|".join(sorted(t for t in grep_terms if t))
+    lines.extend([
+        "",
+        "Please use GitHub CLI/API to check whether these reports exist under different paths, date folders, team folders, or filenames. Usual paths are:",
+        "",
+        "`reports/<year>/<friday-date>/mpex/lightspeed-advisor.md`",
+        "`reports/<year>/<friday-date>/mpex.md`",
+        "",
+        "Useful checks:",
+        "",
+        "```bash",
+        f"gh api repos/{REPORT_REPO}/contents/reports/{target:%Y}/{target:%Y-%m-%d}?ref={REPORT_REF} --jq '.[].path'",
+        f"gh api repos/{REPORT_REPO}/contents/reports/{target:%Y}/{target:%Y-%m-%d}/mpex?ref={REPORT_REF} --jq '.[].path'",
+        f"gh api repos/{REPORT_REPO}/git/trees/{REPORT_REF}?recursive=1 \\",
+        f"  --jq '.tree[].path' | grep -Ei '({grep_expr})'",
+        "```",
+        "",
+        "If you find a missing report in a moved/renamed/misdated location, announce it in Slack with a clear note that the expected path changed, include the actual link, and update the matching state key with the actual path/url and outcome.",
+        "",
+        "Use the CVE/status Slack destination. If `WEEKLY_STATUS_SLACK_WEBHOOK_URL` is set, override `SLACK_WEBHOOK_URL` when calling the slack-notify skill:",
+        "",
+        "```bash",
+        "SLACK_WEBHOOK_URL=\"${WEEKLY_STATUS_SLACK_WEBHOOK_URL:-$SLACK_WEBHOOK_URL}\" \\",
+        "  python3 .claude/skills/slack-notify/slack_notify.py \\",
+        "  \"weekly-status-YYYY-Www\" \"infra_error\" \"<message>\" 2>&1",
+        "```",
+        "",
+        "If you do not find any likely missing report, do not send a Slack message just for absence unless a human explicitly asked for absence notifications. It is acceptable for this weekly check to end without success.",
+    ])
+    return "\n".join(lines)
 
-The preflight has already marked this weekly watcher complete before starting this AI session so it will not search every hour if no file is found. If you find a moved/renamed report and announce it, update the same state key with the actual path/url and outcome.
 
-Please use GitHub CLI/API to check whether the Advisor/Lightspeed Advisor status report exists under a different path, date folder, team folder, or filename in `{REPORT_REPO}`. The usual format is:
-
-`reports/<year>/<friday-date>/mpex/lightspeed-advisor.md`
-
-Useful checks:
-
-```bash
-gh api repos/{REPORT_REPO}/contents/reports/{target:%Y}?ref={REPORT_REF}
-gh api repos/{REPORT_REPO}/git/trees/{REPORT_REF}?recursive=1 \\
-  --jq '.tree[].path' | grep -Ei '({target:%Y-%m-%d}|advisor|lightspeed|mpex)'
-```
-
-If you find the Advisor status in a moved/renamed/misdated location, announce it in Slack with a clear note that the expected path changed, include the actual link, and update the existing state key with the actual path/url and outcome.
-
-If you do not find any likely Advisor status file, do not send a Slack message just for absence unless a human explicitly asked for absence notifications. The preflight already marked this weekly check closed; it is acceptable for this weekly check to end without success.
-""".strip()
-
-
-def _send_slack(target: date, path: str, html_url: str, content: str) -> bool:
+def _send_slack(report: dict, target: date, path: str, html_url: str, content: str) -> bool:
     if not SLACK_WEBHOOK_URL:
         print("WARN: SLACK_WEBHOOK_URL not set, cannot announce weekly status", file=sys.stderr)
         return False
 
     excerpt = _slack_safe_excerpt(content)
     lines = [
-        f"🗓️ *Advisor weekly status update is available* — {target:%Y-%m-%d}",
+        f"🗓️ *{report['title']} is available* — {target:%Y-%m-%d}",
         f"<{html_url}|{path}>",
     ]
     if excerpt:
@@ -239,50 +308,73 @@ def _send_slack(target: date, path: str, html_url: str, content: str) -> bool:
 def main() -> None:
     now = _now_local()
     if not _in_watch_window(now):
-        _output("skip", "Weekly status watcher outside Wednesday/Thursday publication window")
+        _output("skip", "Weekly status watcher outside Friday/Monday publication windows")
         return
 
     target = _target_friday(now.date())
-    path = _report_path(target)
-    state_key = f"{target:%G-W%V}:{path}"
     state = _load_state()
-    already = state.get(state_key, {})
-    if already.get("closed") and not already.get("posted"):
-        _output("skip", f"Advisor weekly status check already closed for {target:%Y-%m-%d}")
-        return
+    reports = _load_reports()
+    missing_for_ai = []
+    posted = []
+    waiting = []
 
-    metadata = _fetch_report_metadata(path)
-    if not metadata:
-        if not _ai_check_due(now):
-            _output("skip", f"Advisor weekly status not present yet before final AI check: {path}")
-            return
-        _mark_path_check_requested(state, state_key, now, target, path)
-        _output("start", _missing_report_prompt(now, target, path, state_key))
-        return
+    for report in reports:
+        path = _report_path(report, target)
+        key = _state_key(report, target, path)
+        already = state.get(key, {})
+        if already.get("closed") and not already.get("posted"):
+            continue
 
-    sha = metadata.get("sha", "")
-    html_url = metadata.get("html_url") or f"https://github.com/{REPORT_REPO}/blob/{REPORT_REF}/{path}"
-    if already.get("sha") == sha and already.get("posted"):
-        _output("skip", f"Advisor weekly status already announced for {target:%Y-%m-%d}")
-        return
+        metadata = _fetch_report_metadata(path)
+        if not metadata:
+            if _ai_check_due(now):
+                _mark_path_check_requested(state, key, now, target, report, path)
+                missing_for_ai.append({"report": report, "path": path, "state_key": key})
+            else:
+                waiting.append(path)
+            continue
 
-    content = _fetch_report_content(path)
-    if not _send_slack(target, path, html_url, content):
-        _output("skip", f"Advisor weekly status found but Slack announcement failed: {path}")
-        return
+        sha = metadata.get("sha", "")
+        if already.get("sha") == sha and already.get("posted"):
+            continue
 
-    state[state_key] = {
-        "posted": True,
-        "posted_at": now.isoformat(),
-        "repo": REPORT_REPO,
-        "ref": REPORT_REF,
-        "path": path,
-        "sha": sha,
-        "url": html_url,
-    }
+        html_url = metadata.get("html_url") or f"https://github.com/{REPORT_REPO}/blob/{REPORT_REF}/{path}"
+        content = _fetch_report_content(path)
+        if not _send_slack(report, target, path, html_url, content):
+            waiting.append(f"{path} (Slack announcement failed)")
+            continue
+
+        state[key] = {
+            "posted": True,
+            "closed": True,
+            "posted_at": now.isoformat(),
+            "repo": REPORT_REPO,
+            "ref": REPORT_REF,
+            "report_id": report["id"],
+            "title": report["title"],
+            "path": path,
+            "sha": sha,
+            "url": html_url,
+            "target_date": f"{target:%Y-%m-%d}",
+        }
+        posted.append(path)
+        print(f"Announced {report['id']} weekly status {path} ({sha})", file=sys.stderr)
+
     _save_state(state)
-    print(f"Announced Advisor weekly status {path} ({sha})", file=sys.stderr)
-    _output("skip", f"Announced Advisor weekly status for {target:%Y-%m-%d}")
+
+    if missing_for_ai:
+        _output("start", _missing_report_prompt(now, target, missing_for_ai))
+        return
+
+    if posted:
+        _output("skip", f"Announced weekly status report(s) for {target:%Y-%m-%d}: {', '.join(posted)}")
+        return
+
+    if waiting:
+        _output("skip", f"Weekly status report(s) not present yet for {target:%Y-%m-%d}: {', '.join(waiting)}")
+        return
+
+    _output("skip", f"Weekly status checks already complete for {target:%Y-%m-%d}")
 
 
 if __name__ == "__main__":

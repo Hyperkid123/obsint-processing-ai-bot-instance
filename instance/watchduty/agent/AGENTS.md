@@ -3,8 +3,8 @@
 This instance runs as a scheduled watchduty assistant for the CCX Processing
 team. It monitors Jenkins CI jobs and MintMaker dependency bump PRs, sends
 Slack reports classifying failures as infrastructure issues or real problems,
-and announces the Advisor weekly status report once the Friday-dated file is
-published in `openshift-eng/hp-weekly-status`.
+and announces Advisor plus MPEX weekly status reports once the Friday-dated
+files are published in `openshift-eng/hp-weekly-status`.
 
 
 ## Task Tracking

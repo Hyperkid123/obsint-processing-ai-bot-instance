@@ -285,20 +285,22 @@ It currently watches these Friday-dated paths:
 `reports/<year>/<friday-date>/mpex/lightspeed-advisor.md`
 `reports/<year>/<friday-date>/mpex.md`
 
-It dedups each report by Friday report date, report id, path, and Git SHA in
-`BOT_DATA_DIR`, so do not re-post an exact report from the agent unless
-explicitly asked by a human.
+It waits until both expected reports are present, then sends one combined Slack
+message containing both links and compact excerpts. It dedups the combined
+message by Friday report date and report ids in `BOT_DATA_DIR`, so do not re-post
+it from the agent unless explicitly asked by a human.
 
 If either expected file is still missing during the Monday fallback window, the
 preflight starts one AI session with a weekly status path-check prompt and marks
-that report's watcher closed before handoff. This prevents the same missing-file
+the combined watcher closed before handoff. This prevents the same missing-file
 investigation from restarting every hour. In that case, use `gh api`/`gh search`
 to look for likely Advisor/Lightspeed Advisor or MPEX rollup reports under
 nearby date folders, changed team folders, or renamed files. If you find a likely
-report in a different location, send one Slack warning to the CVE weekly-status
-destination with the actual link and a clear note that the expected weekly-status
-path changed. Use the `/slack-notify` skill with `SLACK_WEBHOOK_URL` overridden
-from `WEEKLY_STATUS_SLACK_WEBHOOK_URL` when that env var is present, for example:
+report in a different location, send one combined Slack warning/update to the CVE
+weekly-status destination with all available report links and a clear note for
+any expected path that changed. Use the `/slack-notify` skill with
+`SLACK_WEBHOOK_URL` overridden from `WEEKLY_STATUS_SLACK_WEBHOOK_URL` when that
+env var is present, for example:
 
 ```bash
 SLACK_WEBHOOK_URL="${WEEKLY_STATUS_SLACK_WEBHOOK_URL:-$SLACK_WEBHOOK_URL}" \
@@ -307,8 +309,8 @@ SLACK_WEBHOOK_URL="${WEEKLY_STATUS_SLACK_WEBHOOK_URL:-$SLACK_WEBHOOK_URL}" \
 ```
 
 The preflight prompt includes the state file and key it already marked closed.
-If you find and announce a moved/renamed report, update that same state entry
-with the actual path/url and outcome. If you do not find a likely report, do not
+If you find and announce moved/renamed reports, update that same state entry with
+the actual paths/URLs and outcome. If you do not find a likely report, do not
 send an absence-only Slack message unless a human explicitly asked for absence
 notifications; simply signal sleep and end the cycle.
 

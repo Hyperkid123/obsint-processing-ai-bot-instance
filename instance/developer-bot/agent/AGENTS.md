@@ -14,6 +14,11 @@ Select the matching native skill and specialist for each task:
 - Python backend: load `/python-backend-workflow`, delegate technical phases to `python-backend`.
 - Frontend maintenance: load `/frontend-maintenance-workflow`, delegate technical phases to `frontend-maintenance`.
 
+For productized rules image CVEs, apply `/cve-workflow`'s repository preparation
+override **before** generic checkout preparation or retries: fetch upstream
+`public` for OCP or `main` for ACM, preserving the configured fork/upstream
+roles. Never prepare these tasks using the generic `master` reset.
+
 Load the matching workflow skill before delegating and again before lifecycle
 actions after resuming a task. CVE and GlitchTip workflows take precedence over
 generic language workflows. When shared instructions refer to a legacy persona,
@@ -134,11 +139,20 @@ for GitLab CI, and do not claim its CI passed. Use the same direct path for
 undelivered promotion notices from earlier cycles. Human review and the
 production-before-closure rule below still apply.
 
+**Rules-containers source MRs also bypass the GitHub notification checker.**
+Use `/cve-workflow`'s dedicated `rules-image-mr` notice immediately, including
+delivery retries. Do not use the app-interface template or claim the image is
+already safe. Human review, required CI, and catalog-publication verification
+still apply.
+
 ## PR Merged — Promote to Prod BEFORE Closing (overrides jira-sprint workflow)
 
-Overrides the workflow's **PR merged** step. A repo PR merge only deploys to
-**stage**; production needs a separate app-interface GitLab MR. **The ticket must
-not be closed/wrapped up until production is updated.**
+Overrides the workflow's **PR merged** step. For standard service components, a
+repo PR merge only deploys to **stage**; production needs a separate
+app-interface GitLab MR. Productized rules images instead require Konflux release
+and registry.redhat.io catalog publication, not an app-interface MR. **A CVE
+ticket must not be closed/wrapped up until its applicable production gate is
+complete.**
 
 When a PR is `MERGED` (Priority 1 "PR merged" and Priority 1.5 triage), before
 invoking `/wrap-up`:
@@ -147,35 +161,71 @@ For CVE tickets, reload `/cve-workflow` before every `/wrap-up`,
 including Priority 1.5. Use its CVE notification and helper invocation rules so
 post-merge bookkeeping does not send a duplicate or unformatted Slack message.
 
-- **CVE ticket OR `repo:app-interface` label present** → do NOT `/wrap-up` yet:
-  - No app-interface MR yet → follow **Production Image Update (app-interface)**
-    in `/cve-workflow` (wait for Konflux build → check app-interface
-    deployment config → open MR with `glab mr create --repo <app-interface-path>
-    --hostname gitlab.cee.redhat.com`). Add attribution note. Transition ticket
-    → "Code Review". Task stays `in_progress`. Jira comment with MR link.
-  - App-interface MR open, not merged → leave ticket in "Code Review", await merge.
-    No `/wrap-up`.
-  - App-interface MR merged (production updated) → now invoke `/wrap-up`.
-  - App-interface NOT in `agent/project-repos.json` → note in Jira, then `/wrap-up`.
+- **CVE ticket OR `repo:app-interface` label present** → do NOT `/wrap-up` until
+  the applicable production gate is complete:
+  - **Productized rules images** (`lightspeed-services-ocp/ocp-rules-rhel9`,
+    repo `rules-containers`, and `lightspeed-services-acm/ocp-rules-rhel9`,
+    repo `lightspeed-advisor-on-premise-ocp`): these images have no
+    app-interface deployment. Never create an app-interface MR for them. Their
+    production gate is Konflux release and publication of the fixed image to
+    `registry.redhat.io` (see `/cve-workflow`'s "Productized Rules Images"
+    section and the resolve-cve `rules-containers-public.md` /
+    `insights-on-prem-acm.md` references). For inherited-package ACM CVEs,
+    also require the fixed OCP base tag to be referenced by the ACM
+    `Dockerfile` `FROM`.
+    - While this gate is pending, keep the ticket in "Code Review" and use the
+      productized-image `[PROD-GATE:OPEN]` instructions below; record the
+      expected image/tag (or "not released yet"). Do not follow the
+      app-interface steps below.
+    - Once the catalog tag is visible and, for inherited-package ACM CVEs, the
+      ACM base-tag condition is satisfied for the published build, verify the
+      affected package versions in that published image and record its digest
+      and evidence. Include ACM-owned shared pins/copies in the check; a safe
+      base alone does not prove the ACM image is safe. Only then clear the gate
+      using `[PROD-GATE:CLEARED]` and proceed to `/wrap-up`.
+  - **All other CVE tickets and non-CVE `repo:app-interface` tickets** use the
+    app-interface production flow:
+    - No app-interface MR yet → follow **Production Image Update (app-interface)**
+      in `/cve-workflow` (wait for Konflux build → check app-interface
+      deployment config → open MR with `glab mr create --repo <app-interface-path>
+      --hostname gitlab.cee.redhat.com`). Add attribution note. Transition ticket
+      → "Code Review". Task stays `in_progress`. Jira comment with MR link.
+    - App-interface MR open, not merged → leave ticket in "Code Review", await
+      merge. No `/wrap-up`.
+    - App-interface MR merged (production updated) → now invoke `/wrap-up`.
+    - App-interface NOT in `agent/project-repos.json` → note in Jira, then
+      `/wrap-up`.
 - **Otherwise (no prod promotion needed / production already current)** → invoke
   `/wrap-up` as the workflow describes.
 
-**Gate**: while the app-interface promotion MR is pending (not merged), the ticket
-stays "Code Review", NOT closed. Promotion to prod happens **before** the ticket
-is closed.
+**Gate**: while the applicable production gate is pending, the ticket stays
+"Code Review", NOT closed. Production is confirmed **before** the ticket is
+closed.
 
 ### Safeguard — Self-Ping Marker Comment
 
 The gate above is instruction-only. Reinforce it with a durable, self-recognizable
 marker posted to the Jira ticket, so future cycles re-read it and cannot forget.
 
-**When the gate first activates** (PR merged, prod promotion still pending), post a
-Jira comment (`jira_add_comment`) containing this exact marker line:
+**When the gate first activates** (PR merged, production update still pending),
+post a Jira comment (`jira_add_comment`) containing the exact marker line below.
+For standard app-interface tickets, use the first form; for productized rules
+images, use the second form so the catalog tag is tracked instead of an MR URL:
 
+Standard app-interface gate:
 ```
 🔒 [PROD-GATE:OPEN] {mention} Do NOT close this ticket. Production promotion pending.
 app-interface MR: <MR_URL or "not created yet">
 Close/`/wrap-up` is allowed ONLY after this MR is merged and production is updated.
+```
+
+Productized rules image gate:
+```
+🔒 [PROD-GATE:OPEN] {mention} Do NOT close this ticket. Production publication pending.
+Image/tag: <registry.redhat.io image + expected tag, or "not released yet">
+Close/`/wrap-up` is allowed ONLY after the fixed tag is visible in the catalog.
+Record the published digest and package verification evidence before clearing this gate.
+For inherited-package ACM CVEs, the published ACM build must also use the fixed OCP base, verified from its Dockerfile/provenance.
 ```
 
 **Ping the bot itself** via `{mention}` — **only for CVE tickets, where the bot is
@@ -184,19 +234,31 @@ so the reminder notifies the bot on the next cycle. For a non-CVE `repo:app-inte
 ticket the assignee may be a human — do NOT @mention them; drop `{mention}` and post
 the marker without a ping (the marker + task metadata still gate the close).
 
-Also record it in task state as backup: `task_update` metadata
-`{"prod_gate": "open", "next_step": "await app-interface MR merge",
-"app_interface_mr": "<url>"}`.
+Also record it in task state as backup. For an app-interface gate, use
+`task_update` metadata `{"prod_gate": "open", "next_step": "await app-interface MR merge",
+"app_interface_mr": "<url>"}`. For a productized rules image, use
+`{"prod_gate": "open", "next_step": "await registry.redhat.io catalog publication",
+"production_target": "<published image/tag; include fixed OCP base tag for inherited ACM CVEs>"}`.
 
-**Every cycle, before any `/wrap-up` or close/`Release Pending` transition**: scan
-the ticket's Jira comments for a `[PROD-GATE:OPEN]` marker (and/or check task
-metadata `prod_gate == "open"`). If found → the ticket is gated:
+**Every cycle, before any `/wrap-up` or close/`Release Pending` transition**: read
+the ticket's gate markers in chronological order for the current production
+target. A later verified `[PROD-GATE:CLEARED]` supersedes an earlier
+`[PROD-GATE:OPEN]`; an old open comment alone must not reopen a cleared gate.
+Also check task metadata `prod_gate`. If comments and metadata disagree, verify
+the production evidence and reconcile them before closing. If the latest gate
+is open or the required evidence is missing, the ticket remains gated:
 - Do NOT `/wrap-up`, do NOT close. Keep it in "Code Review".
 - This marker is a **bot self-assigned task**, NOT resolved feedback — treat it as
   an outstanding action item even though it is a bot-authored comment.
 
-**Clearing the gate** — only when the app-interface MR is merged and production
-confirmed updated:
+**Clearing the gate** — only after the applicable production target is confirmed:
+- For app-interface, the MR is merged and production is confirmed updated.
+- For productized rules images, the fixed tag is visible in the registry.redhat.io
+  catalog and its published digest/package verification evidence is recorded;
+  for inherited-package ACM CVEs (including combined base/ACM-layer fixes),
+  the published ACM build's `Dockerfile`/provenance confirms the fixed OCP base
+  as well. A change to today's source `FROM` or a clean base scan alone is not
+  sufficient.
 1. Post a Jira comment with `✅ [PROD-GATE:CLEARED] Production updated — safe to close.`
 2. `task_update` metadata `{"prod_gate": "cleared"}`.
 3. Then proceed to `/wrap-up`.

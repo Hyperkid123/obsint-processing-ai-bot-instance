@@ -103,5 +103,10 @@
     "url": "git@github.com-bot:platex-rehor-bot/insights-behavioral-spec.git",
     "upstream": "git@github.com:RedHatInsights/insights-behavioral-spec.git",
     "readonly": true
+  },
+  "lightspeed-advisor-on-premise-ocp": {
+    "url": "git@github.com-bot:platex-rehor-bot/lightspeed-advisor-on-premise-ocp.git",
+    "upstream": "git@github.com:RedHatInsights/lightspeed-advisor-on-premise-ocp.git",
+    "readonly": true
   }
 }

@@ -24,6 +24,8 @@ use `/wait-for-ci`, including later cycles. Running CI defers notification;
 unavailable verification uses the workflow's `ci-unverified` review request.
 For app-interface GitLab MRs, send `production-update` immediately after creation
 with `<!subteam^S043UGRST2L>`, without waiting for CI or claiming it passed.
+For rules-containers GitLab MRs, use the workflow's dedicated `rules-image-mr`
+notice instead, with the same WatchDuty mention and delivery-retry rules.
 
 The user should have installed the `acli` tool:
 https://developer.atlassian.com/cloud/acli/guides/install-acli/
@@ -62,6 +64,10 @@ and parse the data from these fields:
 - **CVE ID** — embedded in the `summary` field, with this format
   `CVE-YYYY-NNNNN {Component}: {Package}: {Title} [services-ccx-default]` e.g.,
   `CVE-2026-32285 parquet-factory: github.com/buger/jsonparser: Denial of Service via malformed JSON input [services-ccx-default]`
+- **Component** — the first token after the CVE ID. It is usually a repo
+  name, but for image CVEs it can be a full image/product name such as
+  `lightspeed-services-ocp/ocp-rules-rhel9` (contains slashes — do not split
+  it on `/`).
 - **Affected package** — mentioned in the description's
   `Flaw:` section (the description starts with boilerplate
   "Security Tracking Issue", "Do not make this issue
@@ -92,6 +98,29 @@ If the issue is missing a CVE ID or the affected package
 is unclear from the flaw text, ask the user to clarify.
 
 ## Step 2: Assess Impact
+
+**Special case — productized rules images**: match the component
+case-insensitively in this order:
+
+1. If it contains `lightspeed-services-acm`, use the ACM workflow.
+2. Otherwise, if it contains `lightspeed-services-ocp` or
+   `ocp-rules-rhel9`, use the OCP workflow.
+
+Follow the matching reference instead of the generic repository and
+production-update flow below:
+
+- `lightspeed-services-acm/ocp-rules-rhel9` →
+  @reference/insights-on-prem-acm.md (repo
+  `RedHatInsights/lightspeed-advisor-on-premise-ocp`, GitHub — PR against
+  `main`, no `public` branch in this repository; layered on the OCP image —
+  base-only packages are fixed in `rules-containers` first; ACM-owned shared
+  pins may need an ACM fix too; released by Konflux, published to registry.redhat.io)
+- `lightspeed-services-ocp/ocp-rules-rhel9` →
+  @reference/rules-containers-public.md (repo `ccx/rules-containers`, GitLab,
+  **`public` branch**; production = registry.redhat.io catalog publication)
+
+Both images have **no app-interface deployment** — the production gate is
+catalog publication, not an app-interface MR.
 
 Determine whether this project is affected:
 
@@ -125,6 +154,10 @@ Determine whether this project is affected:
    to be fixed by a rebuilt or enforcing a newer version in the Dockerfile.
    Otherwise, the component is not affected.
 
+For `registry.redhat.io` images, load @reference/redhat-registry-proxy.md and
+use its Skopeo-to-OCI workflow before scanning with Syft. Direct Syft registry
+access does not use the team proxy mapping.
+
 ## Step 3: Present Assessment
 
 Present the finding to the user clearly:
@@ -157,6 +190,12 @@ assessment and stop. Only continue after explicit "go".
 Based on the verdict and user acknowledgment:
 
 ### Path A: Not Affected
+
+For productized rules image CVEs, use the matching reference to verify the
+published registry.redhat.io image; these images have no app-interface
+deployment. Do not use the app-interface-specific checks or actions below for
+those tickets. The generic app-interface steps in this path apply to other
+components only.
 
 Before closing, check what image is running in production:
 
@@ -220,7 +259,7 @@ Before closing, check what image is running in production:
 
    a. Create an MR in app-interface to update the image reference to the latest tag:
       - Push to the app-interface fork (from `project-repos.json`)
-      - `glab mr create --repo service/app-interface`
+      - Use the shared `/push-and-pr` helper from the app-interface checkout (GitLab API with the configured fork and upstream)
       - Title: `Update <component> image to resolve <CVE-ID>`
       - Description: Include CVE details, production vs latest scan comparison
 
@@ -301,6 +340,23 @@ Do NOT close the ticket yet — proceed to the production image update below.
 ### Paths B & C: Production Image Update (required before closing)
 
 After the repo PR is merged, the ticket is NOT done until production is also updated.
+
+**Exception — productized rules images** (`lightspeed-services-ocp/ocp-rules-rhel9`
+and `lightspeed-services-acm/ocp-rules-rhel9`): these images are not deployed
+via app-interface. Production means the fixed image is released and published
+to `registry.redhat.io` (see @reference/rules-containers-public.md and
+@reference/insights-on-prem-acm.md). Never create an app-interface MR for
+them. **Skip the generic app-interface steps below** and follow the applicable
+reference for the image build, release, and catalog-publication gate. For an
+inherited-package ACM CVE, also verify the ACM `Dockerfile` `FROM` references
+the fixed OCP base for the published build using its source revision and
+provenance, and verify the final ACM image's affected package versions.
+
+### Standard components: app-interface production update
+
+The following generic app-interface procedure applies only to components
+other than the productized rules images above.
+
 The image needs time to build in Konflux and appear in Quay.
 
 1. **Wait for image build**:
@@ -334,7 +390,7 @@ The image needs time to build in Konflux and appear in Quay.
    - Create an MR in app-interface to update the image
      reference to the newly built fixed version:
      - Push to the app-interface fork (from `project-repos.json`)
-     - `glab mr create --repo service/app-interface`
+     - Use the shared `/push-and-pr` helper from the app-interface checkout (GitLab API with the configured fork and upstream)
      - Title: `Update <component> image to fix <CVE-ID>`
      - Description: Include CVE details, link to merged
        application PR, grype/syft scan results
@@ -379,8 +435,11 @@ fix: resolve {CVE-ID} — {brief description}
 - **Jira transitions** — Path A (Not Affected) transitions
   to Done/Closed only after verifying production image is
   also not affected (see Path A step 2-3). For Paths B and C,
-  do NOT close until production image is updated via
-  app-interface MR (see "Production Image Update" section).
+  do NOT close until the applicable production gate is complete:
+  app-interface MR for standard components, or Konflux release and
+  registry.redhat.io catalog publication for productized rules images
+  (including verification of the published ACM build's OCP base and final
+  affected package versions for inherited package CVEs).
 - **Minimal changes** — bump only the affected package,
   not all dependencies.
 - **Verify after every change** — lint, types, and unit

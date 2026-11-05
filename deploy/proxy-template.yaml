@@ -27,6 +27,9 @@ parameters:
 - name: OPENAI_ALLOWED_MODELS
   description: OpenAI model IDs served to the scheduled OpenCode profiles
   value: gpt-6-luna
+- name: REGISTRY_SECRET_NAME
+  description: Optional Vault-backed Secret with registry-redhat-username and registry-redhat-token
+  value: obsint-processing-registry-redhat
 - name: GIT_AUTH_ENABLED
   value: "false"
 - name: GITLAB_TLS_SKIP_VERIFY
@@ -36,7 +39,8 @@ objects:
 # Copied from OpenShift-Fleet/rehor deploy/template.yaml at
 # f74440548ff965a870dda2ade66fb90d6da047a3 (proxy objects only).
 # Deploy once per team, separately from the three bot template targets.
-# GlitchTip uses GLITCHTIP_SECRET_NAME; other credentials use PROXY_SECRET_NAME.
+# GlitchTip uses GLITCHTIP_SECRET_NAME; registry uses REGISTRY_SECRET_NAME.
+# Other credentials use PROXY_SECRET_NAME.
 # GLITCHTIP_SECRET_NAME must contain glitchtip-url and glitchtip-token.
 # Provision the Secret and verify the proxy before switching bot targets.
 
@@ -100,6 +104,9 @@ objects:
           - containerPort: 8450
             name: openai-auth
             protocol: TCP
+          - containerPort: 8451
+            name: registry-auth
+            protocol: TCP
           - containerPort: 9091
             name: metrics
             protocol: TCP
@@ -147,6 +154,19 @@ objects:
               secretKeyRef:
                 name: ${PROXY_SECRET_NAME}
                 key: openai-api-key
+                optional: true
+          # Both keys absent: registry listener remains disabled.
+          - name: REGISTRY_REDHAT_USERNAME
+            valueFrom:
+              secretKeyRef:
+                name: ${REGISTRY_SECRET_NAME}
+                key: registry-redhat-username
+                optional: true
+          - name: REGISTRY_REDHAT_TOKEN
+            valueFrom:
+              secretKeyRef:
+                name: ${REGISTRY_SECRET_NAME}
+                key: registry-redhat-token
                 optional: true
           - name: OPENAI_ALLOWED_MODELS
             value: ${OPENAI_ALLOWED_MODELS}
@@ -249,6 +269,10 @@ objects:
       targetPort: openai-auth
       protocol: TCP
       name: openai-auth
+    - port: 8451
+      targetPort: registry-auth
+      protocol: TCP
+      name: registry-auth
     - port: 9091
       targetPort: metrics
       protocol: TCP
@@ -289,6 +313,8 @@ objects:
       - port: 8448
         protocol: TCP
       - port: 8450
+        protocol: TCP
+      - port: 8451
         protocol: TCP
     - from:
       - namespaceSelector:

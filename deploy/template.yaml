@@ -41,8 +41,6 @@ parameters:
   required: true
 - name: BOT_EXECUTION_ENGINE
   value: coordinator
-- name: REHOR_OPENCODE_MAX_TOOL_CALLS
-  value: "200"
 - name: REHOR_WORKSPACE_OWNER_UID
   description: Numeric UID owning /home/botuser/app in the image; the coordinator compares the workspace owner against it instead of the pod's runtime UID.
   value: "1000"
@@ -111,8 +109,6 @@ objects:
             value: ${BOT_EXECUTION_ENGINE}
           - name: REHOR_OPENCODE_DEPLOYMENT_CONFIG
             value: /home/botuser/app/${BOT_CONFIG_PATH}/opencode-deployment.json
-          - name: REHOR_OPENCODE_MAX_TOOL_CALLS
-            value: ${REHOR_OPENCODE_MAX_TOOL_CALLS}
           - name: REHOR_WORKSPACE_OWNER_UID
             value: ${REHOR_WORKSPACE_OWNER_UID}
           - name: REHOR_VERTEX_PROXY_URL
@@ -254,6 +250,8 @@ objects:
       - port: 8448
         protocol: TCP
       - port: 8450
+        protocol: TCP
+      - port: 8451
         protocol: TCP
     - to:
       - podSelector:

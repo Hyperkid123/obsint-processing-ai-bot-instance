@@ -17,5 +17,9 @@ images:
   - quay.io/redhat-services-prod/obsint-processing-tenant/obsint-mocks/obsint-mocks
   - quay.io/redhat-services-prod/obsint-processing-tenant/aggregator-exporter/aggregator-exporter
   - quay.io/redhat-services-prod/obsint-processing-tenant/rules-containers/rules-containers-private
+  - quay.io/redhat-services-prod/obsint-processing-tenant/rules-containers/rules-containers-public
+  - registry.redhat.io/lightspeed-services-ocp/ocp-rules-rhel9
+  - quay.io/redhat-services-prod/obsint-processing-tenant/insights-on-prem/insights-on-prem
+  - registry.redhat.io/lightspeed-services-acm/ocp-rules-rhel9
   - quay.io/redhat-services-prod/obsint-processing-tenant/load-test/load-test
   - quay.io/redhat-services-prod/obsint-processing-tenant/dvo-extractor/dvo-extractor

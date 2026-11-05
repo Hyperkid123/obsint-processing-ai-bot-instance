@@ -4,6 +4,15 @@
     "upstream": "https://gitlab.cee.redhat.com/service/app-interface.git",
     "host": "gitlab"
   },
+  "rules-containers": {
+    "url": "https://gitlab.cee.redhat.com/platex-rehor-bot/rules-containers.git",
+    "upstream": "https://gitlab.cee.redhat.com/ccx/rules-containers.git",
+    "host": "gitlab"
+  },
+  "lightspeed-advisor-on-premise-ocp": {
+    "url": "git@github.com-bot:platex-rehor-bot/lightspeed-advisor-on-premise-ocp.git",
+    "upstream": "git@github.com:RedHatInsights/lightspeed-advisor-on-premise-ocp.git"
+  },
   "ocp-advisor-frontend": {
     "url": "git@github.com-bot:platex-rehor-bot/ocp-advisor-frontend.git",
     "upstream": "git@github.com:RedHatInsights/ocp-advisor-frontend.git"

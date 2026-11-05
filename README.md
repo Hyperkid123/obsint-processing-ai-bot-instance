@@ -12,7 +12,7 @@ shows task progress and bot activity.
 
 All profiles use native OpenCode V2 through the coordinator execution engine.
 The `dev-bot` submodule pins the merged runtime at
-`46e07753b6caaab649d306b397c956c3cc3c851e` (OpenCode CLI/client 2.1.2).
+`58a87cd9dcf0c27ca41f9c48e847794314a1bfda` (OpenCode CLI/client 2.1.2).
 This runtime uses a per-cycle USD cost budget (`claude.budgetUsd` in its
 `config.json`, default `5`) instead of the previous tool-call limit.
 
@@ -225,5 +225,5 @@ git diff --check
 Local validation covers coordinator configuration/rendering, native definitions,
 helper resolution, and environment compatibility. It does not establish a successful Linux
 image build, real provider access, MCP connectivity, or live deployment behavior.
-Use the staging gates above and the pinned [Řehoř migration guide](https://github.com/OpenShift-Fleet/rehor/blob/46e07753b6caaab649d306b397c956c3cc3c851e/docs/migrations/opencode-migration.md)
+Use the staging gates above and the pinned [Řehoř migration guide](https://github.com/OpenShift-Fleet/rehor/blob/58a87cd9dcf0c27ca41f9c48e847794314a1bfda/docs/migrations/opencode-migration.md)
 for those checks.

@@ -1,8 +1,10 @@
 # Watchduty Instance — Additional Instructions
 
 This instance runs as a scheduled watchduty assistant for the CCX Processing
-team. It monitors Jenkins CI jobs and MintMaker dependency bump PRs, sending
-Slack reports classifying failures as infrastructure issues or real problems.
+team. It monitors Jenkins CI jobs and MintMaker dependency bump PRs, sends
+Slack reports classifying failures as infrastructure issues or real problems,
+and announces Advisor plus MPEX weekly status reports once the Friday-dated
+files are published in `openshift-eng/hp-weekly-status`.
 
 
 ## Task Tracking

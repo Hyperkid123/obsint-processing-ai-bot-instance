@@ -5,6 +5,7 @@ description: Scheduled watchduty workflow — monitors Jenkins CI and MintMaker 
 preflight:
   - 01-jenkins-status.py
   - 02-mintmaker-prs.py
+  - 03-weekly-status-update.py
 
 # Native workflow instructions are loaded from AGENTS.md.
 

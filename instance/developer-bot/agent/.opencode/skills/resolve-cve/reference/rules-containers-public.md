@@ -30,7 +30,7 @@ The component may contain slashes — do not split it on `/`.
 | Item | Value |
 | --- | --- |
 | Repository | `https://gitlab.cee.redhat.com/ccx/rules-containers` (key `rules-containers` in `project-repos.json`) |
-| Bot fork | `https://gitlab.cee.redhat.com/platex-rehor-bot/rules-containers.git` |
+| Bot fork | `https://gitlab.cee.redhat.com/platform-experience-services-bot/rules-containers.git` |
 | **Working branch** | **`public`** — explicitly fetch `upstream/public`, branch from it, and open MRs targeting `public` |
 | Containerfile | `public.Containerfile` at the repo root of the `public` branch |
 | Rules content | `ccx-rules-ocp/` — git submodule; run `git submodule update --init --recursive` after cloning |
@@ -119,7 +119,7 @@ Notes:
    `syft`/`grype` the local image to confirm the package version moved
    outside the vulnerable range.
 4. **MR to `public`**: push the task branch to the bot fork
-   (`platex-rehor-bot/rules-containers`). Use `glab api`, not `glab mr create`:
+   (`platform-experience-services-bot/rules-containers`). Use `glab api`, not `glab mr create`:
    the proxy executes remotely without the local checkout context.
    First read the upstream project ID:
    ```bash
@@ -128,7 +128,7 @@ Notes:
    Create the cross-project MR on the **source fork**, explicitly naming the
    upstream target project ID returned above and the `public` target branch:
    ```bash
-   glab api 'projects/platex-rehor-bot%2Frules-containers/merge_requests' \
+   glab api 'projects/platform-experience-services-bot%2Frules-containers/merge_requests' \
      --hostname gitlab.cee.redhat.com --method POST \
      --field target_project_id='<upstream-project-id>' \
      --raw-field source_branch='<task-branch>' --raw-field target_branch=public \

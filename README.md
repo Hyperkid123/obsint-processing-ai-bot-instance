@@ -89,37 +89,7 @@ human review/merge and production verification remain required before closure.
 Both Konflux pipelines in `.tekton/` build the unmodified upstream
 [Dockerfile.runner](dev-bot/Dockerfile.runner) from the repository root.
 
-The PR and `master` push PipelineRuns use the shared
-[`docker-build` pipeline from `main`](https://github.com/RedHatInsights/konflux-pipelines/blob/main/pipelines/docker-build.yaml).
-Each file selects that branch with `pipelinesascode.tekton.dev/pipeline` and
-`pipelineRef.name: docker-build`, so subsequent builds automatically use the
-latest shared pipeline changes. The current `git-clone` task enables submodule
-checkout by default, so it fetches the `dev-bot` commit recorded by this repository.
-
-The PipelineRuns retain the existing output-image paths, five-day PR image
-expiry, service account, and workspaces. `build-source-image: "false"` preserves
-the previous behavior because the shared pipeline defaults to building source
-images. The shared pipeline also applies full- and short-commit image tags.
-`skip-sast-coverity-check: "true"` preserves the existing scan set; other image
-checks remain enabled and `coverity-availability-check` still runs.
-
-The bot's `ccx-data-pipeline` ReleasePlanAdmission selects
-[`app-interface-standard`](https://gitlab.cee.redhat.com/releng/konflux-release-data/-/blob/main/config/common/service/EnterpriseContractPolicy/app-interface-standard.yaml).
-On 2026-11-06, its `quay.io/redhat-konflux/policy-data:latest` bundle resolved to
-`sha256:35c6cbe0d1aabbb08a41b95aef8707fd393d5666ac042297fd5c88e6d79c7034`.
-That data permits the shared pipeline's Coverity task versions and classifies
-both Coverity checks as informative. The availability task reports a failed
-test when credentials are missing or expired; the checked policy treats that
-result as a warning. No release-policy exception is needed for this migration
-under that policy data. Recheck if upstream changes affect builds or releases;
-both the shared pipeline and the policy data can change between runs.
-
-Before closing the pipeline migration, verify the PR build and its submodule
-checkout in Konflux. After merge, verify the `master` push build and its
-automatically created managed Release both succeed, including Conforma
-validation and publication to the existing `quay.io/redhat-services-prod/`
-repository. Record those run links in CCXDEV-16996; local YAML checks alone do
-not establish a successful managed release.
+PR and `master` builds use the shared [`docker-build` pipeline](https://github.com/RedHatInsights/konflux-pipelines/blob/main/pipelines/docker-build.yaml).
 
 Developer-bot uses the supported `SLACK_WEBHOOK_URL` for both ordinary updates
 and CVE alerts. App-interface maps it to the existing

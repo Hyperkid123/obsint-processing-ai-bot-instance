@@ -89,6 +89,8 @@ human review/merge and production verification remain required before closure.
 Both Konflux pipelines in `.tekton/` build the unmodified upstream
 [Dockerfile.runner](dev-bot/Dockerfile.runner) from the repository root.
 
+PR and `master` builds use the shared [`docker-build` pipeline](https://github.com/RedHatInsights/konflux-pipelines/blob/main/pipelines/docker-build.yaml).
+
 Developer-bot uses the supported `SLACK_WEBHOOK_URL` for both ordinary updates
 and CVE alerts. App-interface maps it to the existing
 `ctibor-cve-watchduty-slack-webhook` secret. The shared memory-server sends

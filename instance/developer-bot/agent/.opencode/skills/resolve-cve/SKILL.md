@@ -348,9 +348,13 @@ to `registry.redhat.io` (see @reference/rules-containers-public.md and
 @reference/insights-on-prem-acm.md). Never create an app-interface MR for
 them. **Skip the generic app-interface steps below** and follow the applicable
 reference for the image build, release, and catalog-publication gate. For an
-inherited-package ACM CVE, also verify the ACM `Dockerfile` `FROM` references
-the fixed OCP base for the published build using its source revision and
-provenance, and verify the final ACM image's affected package versions.
+inherited-package ACM CVE, also verify that the ACM `Dockerfile` `FROM` at the
+published source revision references the fixed OCP base tag and that the final
+published ACM image's affected package versions are outside the vulnerable
+range (published-image scan is the authoritative evidence; see the ACM
+reference for provenance substitutes when build provenance is unavailable).
+Never block the verdict on Quay/Konflux build provenance — the bot has no
+credentials for those endpoints.
 
 ### Standard components: app-interface production update
 
@@ -438,10 +442,28 @@ fix: resolve {CVE-ID} — {brief description}
   do NOT close until the applicable production gate is complete:
   app-interface MR for standard components, or Konflux release and
   registry.redhat.io catalog publication for productized rules images
-  (including verification of the published ACM build's OCP base and final
-  affected package versions for inherited package CVEs).
+  (including verification of the published ACM build's OCP base reference
+  and final affected package versions for inherited package CVEs — the
+  published-image scan is the verdict evidence, not build attestations).
 - **Minimal changes** — bump only the affected package,
   not all dependencies.
+- **Disk hygiene** — the pod's ephemeral storage limit is 8Gi and is not
+  persistent. A full image copy (~200MB), the extracted Grype DB (~1GB),
+  and repository checkouts fit comfortably, but accumulated copies do not:
+  after each Syft/Grype scan, delete the scratch OCI layout and any
+  downloaded database tarball, keeping only `sbom.json`, digests, command
+  logs, and small evidence files under `/home/botuser/data/cve-evidence/`.
+  Repeated cycles must not re-copy an image whose digest has not changed —
+  reuse the recorded SBOM instead. Ephemeral-storage eviction destroys all
+  in-progress work including evidence files.
+- **Grype DB** — `grype db update` downloads ~190MB and can exceed short
+  timeouts through the outbound proxy; use a bounded timeout of at least
+  300s, and retry at most once per cycle. If a seeded database exists
+  (ask the coordinator / check `/home/botuser/data/grype-seed/`), point
+  `GRYPE_DB_UPDATE_URL` at its local `latest.json` (`file://` URL) instead
+  of downloading. Run scans with `GRYPE_DB_AUTO_UPDATE=false` once the
+  database is present. A missing database is a tooling blocker, never a
+  basis for a scan-free verdict.
 - **Verify after every change** — lint, types, and unit
   tests must pass before declaring done.
 - **Do not downplay severity** — if the project is

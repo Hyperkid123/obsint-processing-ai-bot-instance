@@ -117,6 +117,13 @@ removing the temporary image directory. Use the ACM repository from
 `insights-on-prem-acm.md` for ACM tickets. Direct Syft registry scans remain
 appropriate for the existing Quay workflow.
 
+**Disk hygiene:** delete the OCI layout and any Grype DB tarball after each
+scan — the evidence is the SBOM, digests, and command logs, not the image
+bytes. The pod's 8Gi ephemeral-storage limit evicts the pod (destroying all
+work) when copies accumulate across cycles. Do not re-copy an image whose
+digest is already recorded; re-run Syft/Grype against the stored SBOM instead.
+Reuse one OCI layout per digest per cycle at most.
+
 ## Local image builds
 
 The runner's `container-scan` preset installs Buildah. Podman and Docker may be

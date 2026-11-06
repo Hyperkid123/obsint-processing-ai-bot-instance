@@ -86,6 +86,17 @@ using the Dockerfile and lockfiles for that build:
    tags. A mutable `FROM` tag's current digest need not be the digest used by
    the affected build. If the actual base cannot be established, record the
    uncertainty and request help rather than guessing package ownership.
+   Build provenance (Quay build image, Konflux logs, attestations) requires
+   credentials the bot does not have. Treat a 401 from those endpoints as an
+   environmental limitation, not a task blocker: note it once and continue
+   with the evidence below. The following substitutes are sufficient to
+   establish the base for assessment purposes:
+   - the `Dockerfile` `FROM` reference at the published source revision, and
+   - the published ACM image's layer structure — matching lower layers
+     against the OCP base image's manifest digest-prefix comparison — and
+   - the final published ACM image's package scan (the verdict evidence).
+   Do not retry provenance endpoints each cycle and do not block the verdict
+   on attestation data.
 3. Scan that exact OCP base and compare package versions and installed paths
    with the affected ACM image. Inspect the ACM install commands and pins:
    finding the same vulnerable version in both images is not proof that ACM

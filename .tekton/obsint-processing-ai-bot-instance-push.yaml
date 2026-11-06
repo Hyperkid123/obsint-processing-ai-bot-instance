@@ -3,7 +3,7 @@ kind: PipelineRun
 metadata:
   annotations:
     pipelinesascode.tekton.dev/pipeline: >-
-      https://github.com/RedHatInsights/konflux-pipelines/raw/v1.81.0/pipelines/docker-build.yaml
+      https://github.com/RedHatInsights/konflux-pipelines/raw/main/pipelines/docker-build.yaml
     build.appstudio.openshift.io/repo: https://github.com/RedHatInsights/obsint-processing-ai-bot-instance?rev={{revision}}
     build.appstudio.redhat.com/commit_sha: '{{revision}}'
     build.appstudio.redhat.com/target_branch: '{{target_branch}}'

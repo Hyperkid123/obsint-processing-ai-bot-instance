@@ -90,11 +90,11 @@ Both Konflux pipelines in `.tekton/` build the unmodified upstream
 [Dockerfile.runner](dev-bot/Dockerfile.runner) from the repository root.
 
 The PR and `master` push PipelineRuns use the shared
-[`docker-build` pipeline at v1.81.0](https://github.com/RedHatInsights/konflux-pipelines/blob/v1.81.0/pipelines/docker-build.yaml).
-Each file selects that release with `pipelinesascode.tekton.dev/pipeline` and
-`pipelineRef.name: docker-build`. Update both release references together when
-upgrading. The pinned `git-clone` task enables submodule checkout by default,
-so it fetches the `dev-bot` commit recorded by this repository.
+[`docker-build` pipeline from `main`](https://github.com/RedHatInsights/konflux-pipelines/blob/main/pipelines/docker-build.yaml).
+Each file selects that branch with `pipelinesascode.tekton.dev/pipeline` and
+`pipelineRef.name: docker-build`, so subsequent builds automatically use the
+latest shared pipeline changes. The current `git-clone` task enables submodule
+checkout by default, so it fetches the `dev-bot` commit recorded by this repository.
 
 The PipelineRuns retain the existing output-image paths, five-day PR image
 expiry, service account, and workspaces. `build-source-image: "false"` preserves
@@ -111,7 +111,8 @@ That data permits the shared pipeline's Coverity task versions and classifies
 both Coverity checks as informative. The availability task reports a failed
 test when credentials are missing or expired; the checked policy treats that
 result as a warning. No release-policy exception is needed for this migration
-under that policy data. Recheck on upgrades because the policy data is mutable.
+under that policy data. Recheck if upstream changes affect builds or releases;
+both the shared pipeline and the policy data can change between runs.
 
 Before closing the pipeline migration, verify the PR build and its submodule
 checkout in Konflux. After merge, verify the `master` push build and its

@@ -10,3 +10,24 @@ envs:
   - slack
   - container-scan
   - browser
+# Sandbox image launched by the agent dispatcher for this profile.
+image:
+  repository: quay.io/redhat-services-prod/obsint-processing-tenant/obsint-processing-ai-bot-instance/obsint-processing-ai-bot-instance
+  # Newest promoted Konflux build of main.
+  tag: latest
+# Non-secret profile settings for dispatcher wiring and the sandbox runner.
+env:
+  BOT_INSTANCE_ID: Ctibor Šťastný z Čachtíc
+  BOT_LABEL: obsint-processing-ai
+  BOT_CONFIG_PATH: instance/developer-bot
+  BOT_EXECUTION_ENGINE: coordinator
+# Declarative preflights (REHOR-231): the shared jira-sprint default set plus
+# this instance's CVE review resumption, executed by the dispatcher's TS
+# engine (@rehor/preflights) instead of the workflow's Python set.
+preflights:
+  - gh-pr-status
+  - gl-mr-status
+  - id: jira-sprint
+    with:
+      label: obsint-processing-ai
+  - obsint-cve-ci-review

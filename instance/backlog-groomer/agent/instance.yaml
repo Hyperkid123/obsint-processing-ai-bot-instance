@@ -4,3 +4,25 @@ runtime: opencode
 provider: rehor-openai
 model: gpt-6-luna
 envs: []
+# Sandbox image launched by the agent dispatcher for this profile.
+image:
+  repository: quay.io/redhat-services-prod/obsint-processing-tenant/obsint-processing-ai-bot-instance/obsint-processing-ai-bot-instance
+  # Newest promoted Konflux build of main.
+  tag: latest
+# Non-secret profile settings for dispatcher wiring and the sandbox runner.
+env:
+  BOT_INSTANCE_ID: Bonifacio Anacleto Buenaventura de la Fuente Vieja
+  BOT_LABEL: obsint-processing
+  BOT_CONFIG_PATH: instance/backlog-groomer
+  BOT_INCLUDE_BACKLOG: 'true'
+  BOT_EXECUTION_ENGINE: coordinator
+# Declarative preflights (REHOR-231): the complete set for this instance,
+# executed by the dispatcher's TS engine (@rehor/preflights) instead of the
+# workflow's Python set.
+preflights:
+  - id: obsint-backlog-scan
+    with:
+      label: obsint-processing
+  - id: obsint-cve-scan
+    with:
+      label: obsint-processing

@@ -52,11 +52,15 @@ the other instance migrations because of the proxy and secret dependencies.
    verify the configured `latest` tag resolves to it. The dispatcher checks
    out the config repository and its pinned submodule separately from the
    baked runner image; their contents must stay compatible.
-6. Schedule parity: the legacy KEDA windows (Prague weekdays) disappear under
-   dispatcher cadence. The ported preflights self-throttle (mintmaker 8 h,
-   weekly-status Friday/Monday windows, groomer Wednesday gate), but the
-   intended operating windows must be confirmed before cutover so legacy
-   runners and the dispatcher never process the same instance simultaneously.
+6. Schedule parity: each profile's `schedule:` declaration now mirrors its
+   legacy KEDA window from app-interface (developer-bot Mon-Fri 08:00-18:00
+   Prague; backlog-groomer and watchduty Mon-Fri 08:00-16:00 Prague), so the
+   dispatcher starts no sessions outside the windows the legacy deployments
+   used. The ported preflights keep self-throttling inside them (mintmaker
+   8 h, weekly-status Friday/Monday windows, groomer Wednesday gate);
+   in-flight sessions drain past a window's end. Confirm the windows still
+   match intent before cutover so legacy runners and the dispatcher never
+   process the same instance simultaneously.
 7. The `jira-sprint` `email` candidate pass is unconfigured (the bot's Jira
    identity is a deployment secret); validate assigned-ticket behavior before
    cutover.

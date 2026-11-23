@@ -26,3 +26,10 @@ preflights:
   - id: obsint-cve-scan
     with:
       label: obsint-processing
+# Legacy KEDA window of devbot-obsint-groomer (app-interface obsint-deploy):
+# the dispatcher starts no sessions outside it; in-flight sessions drain.
+schedule:
+  triggers:
+    - timezone: Europe/Prague
+      start: "0 8 * * 1-5"
+      end: "0 16 * * 1-5"

@@ -18,8 +18,8 @@ This runtime uses a per-cycle USD cost budget (`claude.budgetUsd` in its
 
 | Profile | Provider and model | Work |
 | --- | --- | --- |
-| `instance/developer-bot` | OpenAI Responses: GPT-6.1 Sol, medium reasoning; GPT-6 Luna utility model | Jira implementation, public GitHub, private GitLab/app-interface, CVEs, GlitchTip |
-| `instance/watchduty` | OpenAI Responses: GPT-6 Luna, medium reasoning | Jenkins monitoring and public GitHub MintMaker maintenance |
+| `instance/developer-bot` | OpenAI Responses: GPT-6.1 Sol coordinator and GPT-6.1 Terra specialists, medium reasoning; GPT-6 Luna utility model | Jira implementation, public GitHub, private GitLab/app-interface, CVEs, GlitchTip |
+| `instance/watchduty` | OpenAI Responses: GPT-6.1 Sol primary and GPT-6.1 Terra MintMaker worker, medium reasoning; GPT-6 Luna message composer and titles | Jenkins monitoring and public GitHub MintMaker maintenance |
 | `instance/backlog-groomer` | OpenAI Responses: GPT-6 Luna, medium reasoning | Scheduled Jira backlog assessment and CVE grooming |
 
 Provider selection is per profile. Developer-bot uses OpenAI Responses throughout
@@ -136,8 +136,9 @@ The last value is a non-secret client placeholder. Model-provider credentials
 remain in the proxy, sourced from Vault-backed Secrets. The
 [team proxy template](deploy/proxy-template.yaml) defaults `OPENAI_ALLOWED_MODELS`
 to `gpt-6-luna,gpt-6.1-terra,gpt-6.1-sol`; the existing proxy Secret must contain an
-OpenAI key with access to GPT-6.1 Sol and GPT-6 Luna. The Vertex allowlist retains only
-`claude-sonnet-4-6`. NetworkPolicy permits the corresponding proxy ports, 8443
+OpenAI key with access to GPT-6.1 Sol, GPT-6.1 Terra, and GPT-6 Luna. The Vertex
+allowlist retains only `claude-sonnet-4-6`. NetworkPolicy permits the corresponding
+proxy ports, 8443
 and 8450. Memory remains shared; GlitchTip keeps its separate team Secret and endpoint.
 
 For the developer-bot switch to Sol, apply the proxy allowlist first, including
@@ -145,10 +146,10 @@ any explicit `OPENAI_ALLOWED_MODELS` override in app-interface. The provider
 configuration is image-owned: build and deploy a fresh runner image together with
 the matching developer-bot profile, keeping the bot paused while they differ.
 Remote profile sync alone cannot switch the baked Vertex provider to OpenAI.
-Verify a controlled staging cycle uses Sol for the coordinator and specialists
-and Luna for title generation before resuming scheduling. Roll back the image
-and developer-bot profile together if needed; a rollback to Opus also requires
-restoring `claude-opus-4-6` in the Vertex allowlists.
+Verify a controlled staging cycle uses Sol for the coordinator, Terra for the
+specialists, and Luna for title generation before resuming scheduling. Roll back
+the image and developer-bot profile together if needed; a rollback to Opus also
+requires restoring `claude-opus-4-6` in the Vertex allowlists.
 
 The companion team GitOps update pins the released proxy
 `46e07753b6caaab649d306b397c956c3cc3c851e`, which includes OpenAI and Red Hat

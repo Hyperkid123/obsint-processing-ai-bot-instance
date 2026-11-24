@@ -1,7 +1,7 @@
 ---
 description: Owns the scheduled WatchDuty cycle and classifies Jenkins CI failures.
 mode: primary
-model: rehor-openai/gpt-6-luna
+model: rehor-openai/gpt-6.1-sol
 permissions:
   - action: subagent
     resource: "*"

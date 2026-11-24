@@ -1,7 +1,7 @@
 ---
 description: "Implements and tests scoped Python backend changes using repository conventions."
 mode: subagent
-model: rehor-openai/gpt-6.1-sol
+model: rehor-openai/gpt-6.1-terra
 permissions:
   - action: subagent
     resource: "*"

@@ -1,7 +1,7 @@
 ---
 description: "Assesses CVE impact and implements scoped vulnerability fixes with verification evidence."
 mode: subagent
-model: rehor-openai/gpt-6.1-sol
+model: rehor-openai/gpt-6.1-terra
 permissions:
   - action: subagent
     resource: "*"

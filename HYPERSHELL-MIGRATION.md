@@ -13,8 +13,18 @@ the other instance migrations because of the proxy and secret dependencies.
   (instance identity, label, config path, coordinator engine), and declarative
   TypeScript preflights executed by the dispatcher's engine instead of the
   workflow Python sets. The OpenCode/OpenAI migration itself (runtime,
-  provider, models, native AGENTS/subagents/skills) is already on master and
-  unchanged here.
+  provider, native AGENTS/subagents/skills) is already on master; this draft
+  additionally assigns role-based model tiers on top of it: GPT-6.1 Sol for the
+  coordinating primary agents (developer-bot `developer-coordinator`,
+  watchduty `watchduty`), GPT-6.1 Terra for the implementing specialists
+  (developer-bot `cve`/`glitchtip`/`golang`/`python-backend`/
+  `frontend-maintenance`, watchduty `mintmaker-triage`), and GPT-6 Luna for
+  bounded utility work (title generation, watchduty `message-composer`, and
+  the backlog groomer). Each profile's `opencode-deployment.json` declares
+  every selected model under `rehor-openai`, matching the pinned runtime's
+  packaged catalog; the team proxy's OpenAI model allowlist already covers
+  all three IDs, and whichever gateway the separate-proxy gate selects must
+  serve them at cutover.
 - Preflight ports live in Rehor (`@rehor/preflights`):
   `obsint-jenkins-status`, `obsint-mintmaker-prs`,
   `obsint-weekly-status-update` (watchduty), `obsint-backlog-scan`,

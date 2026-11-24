@@ -2,10 +2,11 @@
 
 ## OpenCode coordinator and specialists
 
-`opencode.json` selects `developer-coordinator`. The coordinator and specialists
-use GPT-6.1 Sol through the OpenAI Responses proxy, including GitHub, Jira,
-GlitchTip, and private GitLab work. Title generation uses GPT-6 Luna through the
-same provider. Keep the existing bot identity and task ownership throughout each workflow.
+`opencode.json` selects `developer-coordinator`. The coordinator uses GPT-6.1 Sol
+and the specialist subagents use GPT-6.1 Terra through the OpenAI Responses
+proxy, including GitHub, Jira, GlitchTip, and private GitLab work. Title
+generation uses GPT-6 Luna through the same provider. Keep the existing bot
+identity and task ownership throughout each workflow.
 
 Select the matching native skill and specialist for each task:
 

@@ -1,7 +1,7 @@
 ---
 description: Investigates MintMaker failures and implements scoped maintenance for public GitHub repositories.
 mode: subagent
-model: rehor-openai/gpt-6-luna
+model: rehor-openai/gpt-6.1-terra
 permissions:
   - action: subagent
     resource: "*"

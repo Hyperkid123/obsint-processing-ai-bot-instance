@@ -41,8 +41,10 @@ the item recovers.
 
 ## OpenCode Runtime
 
-This profile uses OpenCode with the `rehor-openai` provider and GPT-6 Luna
-for all agents. The `message-composer` subagent is split out so message
+This profile uses OpenCode with the `rehor-openai` provider: GPT-6.1 Sol for
+the `watchduty` primary agent, GPT-6.1 Terra for the `mintmaker-triage` worker,
+and GPT-6 Luna for the `message-composer` subagent and title generation. The
+`message-composer` subagent is split out so message
 formatting and sending are isolated from classification; its definition
 enforces real-newline quoting so reports render correctly in Slack.
 Follow the native workflow AGENTS.md and the selected native primary agent.

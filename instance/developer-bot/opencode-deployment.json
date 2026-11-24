@@ -36,6 +36,17 @@
           "settings": {
             "reasoningEffort": "medium"
           }
+        },
+        "gpt-6.1-terra": {
+          "name": "GPT-6.1 Terra",
+          "capabilities": {
+            "reasoning": {
+              "supported": true
+            }
+          },
+          "settings": {
+            "reasoningEffort": "medium"
+          }
         }
       }
     }

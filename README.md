@@ -12,7 +12,7 @@ shows task progress and bot activity.
 
 All profiles use native OpenCode V2 through the coordinator execution engine.
 The `dev-bot` submodule pins the merged runtime at
-`58a87cd9dcf0c27ca41f9c48e847794314a1bfda` (OpenCode CLI/client 2.1.2).
+`6b4f296072f48acc5bd89f8a900ee821f3a1894e` (OpenCode CLI/client 2.1.2).
 This runtime uses a per-cycle USD cost budget (`claude.budgetUsd` in its
 `config.json`, default `5`) instead of the previous tool-call limit.
 

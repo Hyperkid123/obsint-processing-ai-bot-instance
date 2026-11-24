@@ -37,10 +37,11 @@ the other instance migrations because of the proxy and secret dependencies.
 
 ## Before rollout
 
-1. Merge and deploy Rehor PR #667 (preflights package), #668 (top-level
-   `env`), and the obsint preflights port stacked on them — the dispatcher
-   image must contain all three before this repository is enabled. Older
-   dispatchers ignore top-level `env` and cannot run the declared preflights.
+1. Rehor PR #667 (preflights package), #668 (top-level
+   `env`), and the obsint preflights port (#670) are merged; deploy a dispatcher
+   image containing them. Older dispatchers ignore top-level `env` and cannot
+   run the declared preflights. The `dev-bot` submodule is pinned to merged Rehor
+   master `6b4f296` (#679), which carries the env-unit preflight handling.
 2. **Separate proxy decision (hard gate).** The obsint bots currently run
    their own team proxy with a different credential set than the shared
    platform services (Glitchtip, registry auth, git-auth, GitLab TLS
@@ -58,10 +59,10 @@ the other instance migrations because of the proxy and secret dependencies.
 4. Dispatcher runtime wiring: a writable persistent preflight state directory
    (self-throttle and weekly-marker bookkeeping) and network egress from the
    dispatcher to the Jenkins hosts and the Slack webhook endpoint.
-5. Promote a runner image built from the pinned `dev-bot` submodule and
-   verify the configured `latest` tag resolves to it. The dispatcher checks
-   out the config repository and its pinned submodule separately from the
-   baked runner image; their contents must stay compatible.
+5. Promote a runner image built from the pinned `dev-bot` submodule
+   (`6b4f296`) and verify the configured `latest` tag resolves to it. The
+   dispatcher checks out the config repository and its pinned submodule
+   separately from the baked runner image; their contents must stay compatible.
 6. Schedule parity: each profile's `schedule:` declaration now mirrors its
    legacy KEDA window from app-interface (developer-bot Mon-Fri 08:00-18:00
    Prague; backlog-groomer and watchduty Mon-Fri 08:00-16:00 Prague), so the

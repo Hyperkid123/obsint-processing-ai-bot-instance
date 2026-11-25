@@ -41,7 +41,9 @@ the other instance migrations because of the proxy and secret dependencies.
    `env`), and the obsint preflights port (#670) are merged; deploy a dispatcher
    image containing them. Older dispatchers ignore top-level `env` and cannot
    run the declared preflights. The `dev-bot` submodule is pinned to merged Rehor
-   master `6b4f296` (#679), which carries the env-unit preflight handling.
+   master `f23332ec` (#683), which carries the env-unit preflight handling,
+   native sandbox environment delivery, and Tier 2 `sandbox.env` secret
+   rendering.
 2. **Separate proxy decision (hard gate).** The obsint bots currently run
    their own team proxy with a different credential set than the shared
    platform services (Glitchtip, registry auth, git-auth, GitLab TLS
@@ -53,14 +55,15 @@ the other instance migrations because of the proxy and secret dependencies.
    webhook configuration for all three bots (including the weekly-status
    override channel) must be rendered into dispatcher configuration; Jenkins
    instance endpoints likewise. The sandbox-side Glitchtip credential used by
-   the developer-bot skill requires the planned Tier 2 sandbox secret
-   capability, which deployed dispatchers do not provide yet. No secret
-   values, paths, or references belong in this repository.
+   the developer-bot skill requires a deployment-provisioned Tier 2 Kubernetes
+   Secret plus dispatcher RBAC; the pinned runtime resolves `sandbox.env`
+   secret references, but the Secret is deployment-owned and not provisioned
+   yet. No secret values, paths, or references belong in this repository.
 4. Dispatcher runtime wiring: a writable persistent preflight state directory
    (self-throttle and weekly-marker bookkeeping) and network egress from the
    dispatcher to the Jenkins hosts and the Slack webhook endpoint.
 5. Promote a runner image built from the pinned `dev-bot` submodule
-   (`6b4f296`) and verify the configured `latest` tag resolves to it. The
+   (`f23332ec`) and verify the configured `latest` tag resolves to it. The
    dispatcher checks out the config repository and its pinned submodule
    separately from the baked runner image; their contents must stay compatible.
 6. Schedule parity: each profile's `schedule:` declaration now mirrors its
